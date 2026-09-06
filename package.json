@@ -1,0 +1,25 @@
+{
+  "name": "revenue-execution-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Revenue Execution OS — reconciles customer conversations against CRM, email, task, and commercial state.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

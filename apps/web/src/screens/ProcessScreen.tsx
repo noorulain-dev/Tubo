@@ -1,16 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Card, Spinner } from "../components";
 import type { RunView } from "../types";
 
 export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => void }) {
-  const [mode, setMode] = useState<"sample" | "integration">("sample");
+  const [mode, setMode] = useState<"sample" | "live">("sample");
+  const [liveAvailable, setLiveAvailable] = useState(false);
+  const [healthChecked, setHealthChecked] = useState(false);
   const [account, setAccount] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [transcript, setTranscript] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getHealth()
+      .then((h) => {
+        setLiveAvailable(h.liveAvailable);
+        setHealthChecked(true);
+      })
+      .catch(() => setHealthChecked(true));
+  }, []);
 
   async function handleAnalyze() {
     if (!account.trim() || !transcript.trim()) {
@@ -20,7 +32,7 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
     setError(null);
     setLoading(true);
     try {
-      const run = await api.processInteraction({ text: transcript, kind: "note", accountId: account });
+      const run = await api.processInteraction({ text: transcript, kind: "note", accountId: account, mode });
       onAnalyzed(run);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to process interaction");
@@ -43,8 +55,18 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
           <label>Mode</label>
           <div className="segmented">
             <button className={mode === "sample" ? "active" : ""} onClick={() => setMode("sample")}>Sample Mode</button>
-            <button className={mode === "integration" ? "active" : ""} onClick={() => setMode("integration")}>Live Mode</button>
+            <button
+              className={mode === "live" ? "active" : ""}
+              disabled={!liveAvailable}
+              title={!liveAvailable ? "Live Mode is not configured on the server" : ""}
+              onClick={() => setMode("live")}
+            >
+              Live Mode
+            </button>
           </div>
+          {healthChecked && !liveAvailable && (
+            <p className="helper">Live Mode is unavailable — the server has no live LLM/integration configured. Running Sample Mode only.</p>
+          )}
         </div>
 
         <div className="field-row">

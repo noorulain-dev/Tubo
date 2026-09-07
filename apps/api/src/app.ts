@@ -7,7 +7,8 @@ import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
 export interface CreateAppOptions {
-  service: RunService;
+  sampleService: RunService;
+  liveService?: RunService;
   authToken?: string;
   mode?: "sample" | "integration";
   reset?: () => void;
@@ -45,7 +46,11 @@ function auditView(run: RunView) {
 
 export function createApp(opts: CreateAppOptions) {
   const app = new Hono();
-  const mode = opts.mode ?? "integration";
+  const all = [opts.sampleService, opts.liveService].filter((s): s is RunService => !!s);
+
+  const serviceForRun = (runId: string) => all.find((s) => s.getRun(runId));
+  const serviceForProposal = (id: string) => all.find((s) => s.getProposal(id));
+
   app.use("*", cors());
   app.use("*", bearerAuth(opts.authToken));
 
@@ -55,41 +60,48 @@ export function createApp(opts: CreateAppOptions) {
     if (!parsed.success) {
       return c.json(errorEnvelope("VALIDATION", "invalid interaction payload", parsed.error.issues), 400);
     }
+    const input = parsed.data;
+    const wantLive = input.mode === "live";
+    if (wantLive && !opts.liveService) {
+      return c.json(errorEnvelope("UNAVAILABLE", "Live Mode is not configured on this server"), 400);
+    }
+    const service = wantLive ? opts.liveService! : opts.sampleService;
     try {
-      const run = await opts.service.process(parsed.data);
+      const run = await service.process({ text: input.text, kind: input.kind, accountId: input.accountId, participants: input.participants, truncated: input.truncated });
       return c.json(run, 201);
     } catch (err) {
       return handleError(c, err);
     }
   });
 
-  app.get("/runs", (c) => c.json(opts.service.listRuns()));
+  app.get("/runs", (c) => c.json(all.flatMap((s) => s.listRuns())));
 
   app.get("/runs/:runId", (c) => {
-    const run = opts.service.getRun(c.req.param("runId"));
+    const svc = serviceForRun(c.req.param("runId"));
+    const run = svc?.getRun(c.req.param("runId"));
     return run ? c.json(run) : c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
   });
 
   app.get("/runs/:runId/semantic", (c) => {
-    const run = opts.service.getRun(c.req.param("runId"));
+    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, semantic: run.semantic, semanticValid: run.semanticValid, semanticErrors: run.semanticErrors });
   });
 
   app.get("/runs/:runId/reconciliation", (c) => {
-    const run = opts.service.getRun(c.req.param("runId"));
+    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, findings: run.findings, gaps: run.gaps });
   });
 
   app.get("/runs/:runId/proposals", (c) => {
-    const run = opts.service.getRun(c.req.param("runId"));
+    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, proposals: run.proposals });
   });
 
   app.get("/runs/:runId/audit", (c) => {
-    const run = opts.service.getRun(c.req.param("runId"));
+    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json(auditView(run));
   });
@@ -98,23 +110,28 @@ export function createApp(opts: CreateAppOptions) {
     const body = await c.req.json().catch(() => null);
     const parsed = ProposalEditSchema.safeParse(body);
     if (!parsed.success) return c.json(errorEnvelope("VALIDATION", "invalid edit payload", parsed.error.issues), 400);
-    const view = opts.service.editProposal(c.req.param("proposalId"), parsed.data);
+    const svc = serviceForProposal(c.req.param("proposalId"));
+    const view = svc?.editProposal(c.req.param("proposalId"), parsed.data);
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
   app.post("/proposals/:proposalId/approve", (c) => {
-    const view = opts.service.approveProposal(c.req.param("proposalId"), "user");
+    const svc = serviceForProposal(c.req.param("proposalId"));
+    const view = svc?.approveProposal(c.req.param("proposalId"), "user");
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
   app.post("/proposals/:proposalId/reject", (c) => {
-    const view = opts.service.rejectProposal(c.req.param("proposalId"), "user");
+    const svc = serviceForProposal(c.req.param("proposalId"));
+    const view = svc?.rejectProposal(c.req.param("proposalId"), "user");
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
   app.post("/proposals/:proposalId/execute", async (c) => {
+    const svc = serviceForProposal(c.req.param("proposalId"));
+    if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     try {
-      const view = await opts.service.executeProposal(c.req.param("proposalId"));
+      const view = await svc.executeProposal(c.req.param("proposalId"));
       return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     } catch (err) {
       return handleError(c, err);
@@ -124,10 +141,10 @@ export function createApp(opts: CreateAppOptions) {
   app.post("/admin/reset", (c) => {
     if (!opts.reset) return c.json(errorEnvelope("PERMISSION", "reset not available in this mode"), 404);
     opts.reset();
-    return c.json({ ok: true, mode });
+    return c.json({ ok: true });
   });
 
-  app.get("/health", (c) => c.json({ status: "ok", mode }));
+  app.get("/health", (c) => c.json({ status: "ok", mode: opts.mode ?? "sample", liveAvailable: !!opts.liveService }));
 
   app.onError((err, c) => handleError(c, err));
 

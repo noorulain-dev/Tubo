@@ -5,9 +5,14 @@ import type { ErrorEnvelope, InteractionInput, ProposalView, RunView } from "./t
 const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = import.meta.env.VITE_AUTH_TOKEN as string | undefined;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers as Record<string, string> | undefined),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as ErrorEnvelope | null;
@@ -30,7 +35,16 @@ export interface AuditView {
   steps: string[];
 }
 
+export interface HealthView {
+  status: string;
+  mode: string;
+  liveAvailable: boolean;
+}
+
 export const api = {
+  getHealth(): Promise<HealthView> {
+    return request<HealthView>("/health", { method: "GET" });
+  },
   processInteraction(input: InteractionInput): Promise<RunView> {
     return request<RunView>("/interactions", { method: "POST", body: JSON.stringify(input) });
   },

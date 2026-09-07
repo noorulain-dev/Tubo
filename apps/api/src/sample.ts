@@ -41,7 +41,7 @@ export function createSampleApp(opts: { llm?: LLMProvider; authToken?: string } 
   const audit = new AuditService(new MemoryAuditSink());
   const executor = new Executor(createCrmWrite(state), createEmailWrite(state), { audit });
   const service = new RunService({ interpreter, readContext, executor, audit, mode: "sample" });
-  const app = createApp({ service, authToken: opts.authToken, mode: "sample", reset: resetSampleData });
+  const app = createApp({ sampleService: service, authToken: opts.authToken, mode: "sample", reset: resetSampleData });
 
   return { app, service, state, reset: resetSampleData };
 }

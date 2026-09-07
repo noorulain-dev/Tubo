@@ -1,12 +1,45 @@
+import { config as loadDotenv } from "dotenv";
+import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
+import { isLiveConfigured, loadConfig } from "./core.js";
 import { createSampleApp } from "./sample.js";
+import { createLiveApp } from "./live.js";
+import { createApp } from "./app.js";
 
-const authToken = process.env.AUTH_TOKEN || undefined;
-const { app } = createSampleApp({ authToken });
+// Load .env from repo root and/or the workspace cwd (whichever runs the server).
+for (const p of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {
+  loadDotenv({ path: p });
+}
 
-const port = Number(process.env.PORT ?? 3000);
+const config = loadConfig();
 
-serve({ fetch: app.fetch, port }, (info) => {
-  // eslint-disable-next-line no-console
-  console.log(`Revenue Execution OS API listening on http://localhost:${info.port}`);
-});
+async function main(): Promise<void> {
+  const sample = createSampleApp({ authToken: config.authToken });
+  let liveService = undefined;
+
+  if (isLiveConfigured(config)) {
+    const live = await createLiveApp(config);
+    liveService = live.service;
+    for (const w of live.warnings) {
+      // eslint-disable-next-line no-console
+      console.warn(`[live] ${w}`);
+    }
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn("[live] Live Mode unavailable: no LLM API key configured (OPENAI_API_KEY / DEEPSEEK_API_KEY).");
+  }
+
+  const app = createApp({
+    sampleService: sample.service,
+    liveService,
+    authToken: config.authToken,
+    reset: sample.reset,
+  });
+
+  serve({ fetch: app.fetch, port: config.port }, (info) => {
+    // eslint-disable-next-line no-console
+    console.log(`Revenue Execution OS API listening on http://localhost:${info.port} (live ${liveService ? "available" : "unavailable"})`);
+  });
+}
+
+void main();

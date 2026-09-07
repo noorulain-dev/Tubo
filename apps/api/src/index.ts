@@ -1,7 +1,7 @@
 import { config as loadDotenv } from "dotenv";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
-import { isLiveConfigured, loadConfig } from "./core.js";
+import { integrationStatus, isLiveConfigured, loadConfig } from "./core.js";
 import { createSampleApp } from "./sample.js";
 import { createLiveApp } from "./live.js";
 import { createApp } from "./app.js";
@@ -33,6 +33,7 @@ async function main(): Promise<void> {
     sampleService: sample.service,
     liveService,
     authToken: config.authToken,
+    integrations: integrationStatus(config),
     reset: sample.reset,
   });
 

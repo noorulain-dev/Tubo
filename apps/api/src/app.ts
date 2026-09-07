@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { isAppError } from "./core.js";
+import { isAppError, type IntegrationStatus } from "./core.js";
 import { bearerAuth } from "./auth.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
@@ -11,6 +11,7 @@ export interface CreateAppOptions {
   liveService?: RunService;
   authToken?: string;
   mode?: "sample" | "integration";
+  integrations?: IntegrationStatus;
   reset?: () => void;
 }
 
@@ -141,10 +142,23 @@ export function createApp(opts: CreateAppOptions) {
   app.post("/admin/reset", (c) => {
     if (!opts.reset) return c.json(errorEnvelope("PERMISSION", "reset not available in this mode"), 404);
     opts.reset();
-    return c.json({ ok: true });
+    return c.json({ ok: true, mode: opts.mode ?? "sample" });
   });
 
   app.get("/health", (c) => c.json({ status: "ok", mode: opts.mode ?? "sample", liveAvailable: !!opts.liveService }));
+
+  app.get("/integrations", (c) =>
+    c.json({
+      mode: opts.mode ?? "sample",
+      ...(opts.integrations ?? {
+        llm: { configured: false, provider: null },
+        hubspot: { configured: false },
+        gmail: { configured: false },
+        stripe: { configured: false },
+        live: false,
+      }),
+    }),
+  );
 
   app.onError((err, c) => handleError(c, err));
 

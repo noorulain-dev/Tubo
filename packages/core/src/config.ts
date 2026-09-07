@@ -83,3 +83,29 @@ export function isPlaceholderToken(value: string | undefined): boolean {
 export function isLiveConfigured(config: AppConfig): boolean {
   return !isPlaceholderToken(config.openaiApiKey ?? config.deepseekApiKey);
 }
+
+/** Per-integration connection status, derived purely from config (no probing). */
+export interface IntegrationStatus {
+  llm: { configured: boolean; provider: "openai" | "deepseek" | null };
+  hubspot: { configured: boolean };
+  gmail: { configured: boolean };
+  stripe: { configured: boolean };
+  live: boolean;
+}
+
+export function integrationStatus(config: AppConfig): IntegrationStatus {
+  const openai = !isPlaceholderToken(config.openaiApiKey);
+  const deepseek = !isPlaceholderToken(config.deepseekApiKey);
+  return {
+    llm: {
+      configured: openai || deepseek,
+      provider: openai ? "openai" : deepseek ? "deepseek" : null,
+    },
+    hubspot: { configured: !isPlaceholderToken(config.hubspotAccessToken) },
+    gmail: {
+      configured: Boolean(config.gmailClientId && config.gmailClientSecret && config.gmailRefreshToken),
+    },
+    stripe: { configured: Boolean(config.stripeSecretKey && !isPlaceholderToken(config.stripeSecretKey)) },
+    live: isLiveConfigured(config),
+  };
+}

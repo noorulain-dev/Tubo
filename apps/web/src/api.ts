@@ -41,9 +41,21 @@ export interface HealthView {
   liveAvailable: boolean;
 }
 
+export interface IntegrationsView {
+  mode: string;
+  llm: { configured: boolean; provider: "openai" | "deepseek" | null };
+  hubspot: { configured: boolean };
+  gmail: { configured: boolean };
+  stripe: { configured: boolean };
+  live: boolean;
+}
+
 export const api = {
   getHealth(): Promise<HealthView> {
     return request<HealthView>("/health", { method: "GET" });
+  },
+  getIntegrations(): Promise<IntegrationsView> {
+    return request<IntegrationsView>("/integrations", { method: "GET" });
   },
   processInteraction(input: InteractionInput): Promise<RunView> {
     return request<RunView>("/interactions", { method: "POST", body: JSON.stringify(input) });

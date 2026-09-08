@@ -10,6 +10,7 @@ import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from
 import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
 import { getChannelUser, registerWatch } from "./calendar-watch.js";
 import { enqueue } from "./jobs.js";
+import { appendAccountEvent, getSnapshot, listAccountEvents, listAccounts } from "./account-intelligence.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
@@ -183,10 +184,40 @@ export function createApp(opts: CreateAppOptions) {
         { text: input.text, kind: input.kind, accountId: input.accountId, participants: input.participants, truncated: input.truncated },
         userId,
       );
+      await appendAccountEvent({
+        userId,
+        accountId: input.accountId ?? null,
+        eventType: "manual_interaction_processed",
+        source: "manual",
+        sourceReference: run.id,
+        payload: { runId: run.id, status: run.status, proposals: run.proposals.map((p) => p.action.type) },
+        provenance: "manual",
+        idempotencyKey: `interaction:${userId}:${run.id}`,
+      }).catch(() => undefined);
       return c.json(run, 201);
     } catch (err) {
       return handleError(c, err);
     }
+  });
+
+  app.get("/accounts", async (c) => {
+    const userId = ownerId(c);
+    const accounts = await listAccounts(userId);
+    return c.json({ accounts });
+  });
+
+  app.get("/accounts/:accountId/intelligence", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const snapshot = await getSnapshot(user.id, c.req.param("accountId"));
+    return c.json(snapshot);
+  });
+
+  app.get("/accounts/:accountId/events", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const events = await listAccountEvents(user.id, c.req.param("accountId"));
+    return c.json({ events });
   });
 
   app.get("/runs", async (c) => {
@@ -253,6 +284,18 @@ export function createApp(opts: CreateAppOptions) {
     if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     try {
       const view = await svc.executeProposal(c.req.param("proposalId"), ownerId(c));
+      if (view) {
+        await appendAccountEvent({
+          userId: ownerId(c),
+          accountId: view.action.target ?? null,
+          eventType: "external_action_executed",
+          source: "executor",
+          sourceReference: view.id,
+          payload: { actionType: view.action.type, status: view.execution?.status },
+          provenance: "executor",
+          idempotencyKey: `exec:${ownerId(c)}:${view.id}`,
+        }).catch(() => undefined);
+      }
       return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     } catch (err) {
       return handleError(c, err);

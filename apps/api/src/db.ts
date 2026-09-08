@@ -170,5 +170,29 @@ export async function ensureSchema(): Promise<void> {
       created_at  timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_calendar_watch_user ON calendar_watch_channels(user_id);
+
+    CREATE TABLE IF NOT EXISTS account_events (
+      event_id        text PRIMARY KEY,
+      user_id         text NOT NULL,
+      account_id      text,
+      event_type      text NOT NULL,
+      occurred_at     timestamptz NOT NULL DEFAULT now(),
+      source          text,
+      source_reference text,
+      payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
+      provenance      text,
+      idempotency_key text NOT NULL UNIQUE,
+      created_at      timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_account_events_user_account ON account_events(user_id, account_id, occurred_at);
+
+    CREATE TABLE IF NOT EXISTS account_intelligence (
+      account_id text NOT NULL,
+      user_id    text NOT NULL,
+      state      jsonb NOT NULL DEFAULT '{}'::jsonb,
+      version    integer NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, account_id)
+    );
   `);
 }

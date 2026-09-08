@@ -17,7 +17,9 @@
     "smoke:fireflies": "tsx src/smoke-fireflies.ts",
     "worker": "tsx src/worker.ts",
     "dev:worker": "tsx watch src/worker.ts",
-    "assessment:hubspot:setup": "tsx src/assessment-hubspot-setup.ts"
+    "assessment:hubspot:setup": "tsx src/assessment-hubspot-setup.ts",
+    "live:check": "tsx src/live-check.ts",
+    "live:test-writes": "tsx src/live-test-writes.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

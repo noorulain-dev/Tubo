@@ -23,6 +23,9 @@
     "worker": "npm run worker --workspace @revexec/api",
     "dev:worker": "npm run dev:worker --workspace @revexec/api",
     "assessment:hubspot:setup": "npm run assessment:hubspot:setup --workspace @revexec/api",
+    "verify:step50": "npm run test --workspace @revexec/core && npm run test --workspace @revexec/api",
+    "live:check": "npm run live:check --workspace @revexec/api",
+    "live:test-writes": "npm run live:test-writes --workspace @revexec/api",
     "verify:step50-core": "npm run test --workspace @revexec/core && npm run test --workspace @revexec/api"
   },
   "engines": {

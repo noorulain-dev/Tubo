@@ -5,6 +5,7 @@ import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
 import { ingestMeetingArtifact } from "./fireflies-ingest.js";
 import { getPipelineService } from "./pipeline-service.js";
 import { enqueue, type Job } from "./jobs.js";
+import { appendAccountEvent } from "./account-intelligence.js";
 
 export async function handleCalendarSync(job: Job): Promise<void> {
   await syncCalendar(job.userId);
@@ -118,6 +119,17 @@ export async function handleInteractionProcess(job: Job): Promise<void> {
     "UPDATE meeting_artifacts SET ingestion_status = $2, interaction_id = $3 WHERE user_id = $1 AND provider = 'fireflies' AND provider_meeting_id = $4",
     [job.userId, outcome.status === "unresolved_account" ? "unresolved_account" : "processed", job.id, meetingId],
   );
+
+  await appendAccountEvent({
+    userId: job.userId,
+    accountId: null,
+    eventType: "meeting_processed",
+    source: "fireflies",
+    sourceReference: meetingId,
+    payload: { providerMeetingId: meetingId, status: outcome.status },
+    provenance: "fireflies",
+    idempotencyKey: `meeting:${job.userId}:${meetingId}`,
+  }).catch(() => undefined);
 }
 
 export const HANDLERS: Record<string, (job: Job) => Promise<void>> = {

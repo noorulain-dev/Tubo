@@ -1,87 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db.js";
+import {
+  buildState,
+  EMPTY_SNAPSHOT,
+  type AccountEvent,
+  type AccountEventType,
+  type AccountIntelligenceSnapshot,
+} from "./state-builder.js";
 
-export type AccountEventType =
-  | "interaction_processed"
-  | "meeting_processed"
-  | "manual_interaction_processed"
-  | "email_observed"
-  | "crm_state_observed"
-  | "task_created"
-  | "task_completed"
-  | "commercial_state_observed"
-  | "proposal_approved"
-  | "proposal_rejected"
-  | "external_action_executed"
-  | "manual_correction";
-
-export interface AccountEvent {
-  eventId: string;
-  userId: string;
-  accountId: string | null;
-  eventType: AccountEventType;
-  occurredAt: string;
-  source: string | null;
-  sourceReference: string | null;
-  payload: Record<string, unknown>;
-  provenance: string | null;
-}
-
-export interface AccountIntelligenceSnapshot {
-  identity: { companyId?: string; contactId?: string; dealId?: string; name?: string } | null;
-  stage: string | null;
-  commercial: { status?: string; provenance?: string | null } | null;
-  decisions: unknown[];
-  openCommitments: unknown[];
-  openQuestions: unknown[];
-  blockers: string[];
-  nextSteps: unknown[];
-  recentEvents: { eventType: AccountEventType; occurredAt: string }[];
-  executionGaps: unknown[];
-  lastReviewed: string | null;
-  lastSourceRefresh: string | null;
-  version: number;
-}
-
-export const EMPTY_SNAPSHOT: AccountIntelligenceSnapshot = {
-  identity: null,
-  stage: null,
-  commercial: null,
-  decisions: [],
-  openCommitments: [],
-  openQuestions: [],
-  blockers: [],
-  nextSteps: [],
-  recentEvents: [],
-  executionGaps: [],
-  lastReviewed: null,
-  lastSourceRefresh: null,
-  version: 0,
-};
-
-/** Pure, append-only state derivation. Never erases history. */
-export function applyEvent(snapshot: AccountIntelligenceSnapshot, event: AccountEvent): AccountIntelligenceSnapshot {
-  const next: AccountIntelligenceSnapshot = { ...snapshot, version: snapshot.version + 1 };
-  next.recentEvents = [{ eventType: event.eventType, occurredAt: event.occurredAt }, ...snapshot.recentEvents].slice(0, 50);
-  switch (event.eventType) {
-    case "crm_state_observed":
-      next.stage = (event.payload.stage as string) ?? snapshot.stage;
-      next.lastSourceRefresh = event.occurredAt;
-      break;
-    case "commercial_state_observed":
-      next.commercial = { status: event.payload.status as string | undefined, provenance: event.provenance ?? null };
-      next.lastSourceRefresh = event.occurredAt;
-      break;
-    case "proposal_approved":
-    case "proposal_rejected":
-    case "manual_correction":
-      next.lastReviewed = event.occurredAt;
-      break;
-    default:
-      break;
-  }
-  return next;
-}
+export type { AccountEvent, AccountEventType, AccountIntelligenceSnapshot } from "./state-builder.js";
+export { EMPTY_SNAPSHOT, buildState, reduceEvent } from "./state-builder.js";
 
 export interface RecordEventInput {
   userId: string;
@@ -120,13 +48,8 @@ export async function recordAccountEvent(input: RecordEventInput): Promise<{ eve
   return { eventId: (existing.rows[0] as { event_id: string })?.event_id ?? id, created: false };
 }
 
-export async function listAccountEvents(userId: string, accountId: string): Promise<AccountEvent[]> {
-  const pool = getPool();
-  const res = await pool.query(
-    "SELECT event_id, user_id, account_id, event_type, occurred_at, source, source_reference, payload, provenance FROM account_events WHERE user_id = $1 AND account_id = $2 ORDER BY occurred_at DESC",
-    [userId, accountId],
-  );
-  return (res.rows as Record<string, unknown>[]).map((r) => ({
+function rowToEvent(r: Record<string, unknown>): AccountEvent {
+  return {
     eventId: String(r.event_id),
     userId: String(r.user_id),
     accountId: (r.account_id as string) ?? null,
@@ -136,7 +59,16 @@ export async function listAccountEvents(userId: string, accountId: string): Prom
     sourceReference: (r.source_reference as string) ?? null,
     payload: (r.payload as Record<string, unknown>) ?? {},
     provenance: (r.provenance as string) ?? null,
-  }));
+  };
+}
+
+export async function listAccountEvents(userId: string, accountId: string): Promise<AccountEvent[]> {
+  const pool = getPool();
+  const res = await pool.query(
+    "SELECT event_id, user_id, account_id, event_type, occurred_at, source, source_reference, payload, provenance FROM account_events WHERE user_id = $1 AND account_id = $2 ORDER BY occurred_at DESC",
+    [userId, accountId],
+  );
+  return (res.rows as Record<string, unknown>[]).map(rowToEvent);
 }
 
 export async function getSnapshot(userId: string, accountId: string): Promise<AccountIntelligenceSnapshot> {
@@ -156,24 +88,20 @@ export async function saveSnapshot(userId: string, accountId: string, snapshot: 
   );
 }
 
-/** Record an event and derive the next snapshot version (idempotent). */
+/**
+ * Record an event (idempotent) and rebuild the account snapshot deterministically
+ * from the FULL ordered event history. This makes the snapshot reproducible and
+ * naturally immune to duplicate/out-of-order events: state is the fold of all
+ * events for the account, not an incremental mutation.
+ */
 export async function appendAccountEvent(input: RecordEventInput): Promise<{ eventId: string; created: boolean; version: number }> {
   const { eventId, created } = await recordAccountEvent(input);
   if (!input.accountId) return { eventId, created, version: 0 };
-  const current = await getSnapshot(input.userId, input.accountId);
-  const next = applyEvent(current, {
-    eventId,
-    userId: input.userId,
-    accountId: input.accountId,
-    eventType: input.eventType,
-    occurredAt: input.occurredAt ?? new Date().toISOString(),
-    source: input.source ?? null,
-    sourceReference: input.sourceReference ?? null,
-    payload: input.payload ?? {},
-    provenance: input.provenance ?? null,
-  });
-  await saveSnapshot(input.userId, input.accountId, next);
-  return { eventId, created, version: next.version };
+
+  const events = await listAccountEvents(input.userId, input.accountId);
+  const snapshot = buildState(events);
+  await saveSnapshot(input.userId, input.accountId, snapshot);
+  return { eventId, created, version: snapshot.version };
 }
 
 export async function listAccounts(userId: string): Promise<string[]> {

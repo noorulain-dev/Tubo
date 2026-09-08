@@ -122,11 +122,11 @@ export async function handleInteractionProcess(job: Job): Promise<void> {
 
   await appendAccountEvent({
     userId: job.userId,
-    accountId: null,
+    accountId: outcome.accountId,
     eventType: "meeting_processed",
     source: "fireflies",
     sourceReference: meetingId,
-    payload: { providerMeetingId: meetingId, status: outcome.status },
+    payload: { providerMeetingId: meetingId, status: outcome.status, semantic: outcome.semantic },
     provenance: "fireflies",
     idempotencyKey: `meeting:${job.userId}:${meetingId}`,
   }).catch(() => undefined);

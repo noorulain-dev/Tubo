@@ -190,7 +190,13 @@ export function createApp(opts: CreateAppOptions) {
         eventType: "manual_interaction_processed",
         source: "manual",
         sourceReference: run.id,
-        payload: { runId: run.id, status: run.status, proposals: run.proposals.map((p) => p.action.type) },
+        payload: {
+          runId: run.id,
+          status: run.status,
+          proposals: run.proposals.map((p) => p.action.type),
+          semantic: run.semantic,
+          gaps: run.gaps.map((g) => g.type),
+        },
         provenance: "manual",
         idempotencyKey: `interaction:${userId}:${run.id}`,
       }).catch(() => undefined);

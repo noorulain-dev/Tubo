@@ -10,7 +10,7 @@ import type { InteractionInput } from "./types.js";
 
 /** Minimal process surface so the orchestrator is unit-testable without the LLM. */
 export interface ProcessFn {
-  process(input: InteractionInput, userId: string): Promise<{ proposals: { status: string }[] }>;
+  process(input: InteractionInput, userId: string): Promise<{ proposals: { status: string }[]; semantic?: unknown | null }>;
 }
 
 export interface FirefliesIngestDeps {
@@ -23,6 +23,10 @@ export interface FirefliesIngestDeps {
 export interface IngestOutcome {
   status: "needs_review" | "completed_no_action" | "unresolved_account" | "failed";
   accountResolved: boolean;
+  /** The resolved account id, when identity correlation succeeded. */
+  accountId: string | null;
+  /** The semantic state produced by the pipeline for this meeting (persisted for the state builder). */
+  semantic: unknown | null;
 }
 
 /**
@@ -33,7 +37,7 @@ export interface IngestOutcome {
  */
 export async function ingestMeetingArtifact(userId: string, meetingId: string, deps: FirefliesIngestDeps): Promise<IngestOutcome> {
   const artifact = await deps.loadArtifact(userId, meetingId);
-  if (!artifact) return { status: "failed", accountResolved: false };
+  if (!artifact) return { status: "failed", accountResolved: false, accountId: null, semantic: null };
 
   const meeting = {
     providerMeetingId: artifact.providerMeetingId,
@@ -59,5 +63,5 @@ export async function ingestMeetingArtifact(userId: string, meetingId: string, d
       ? "needs_review"
       : "completed_no_action";
 
-  return { status, accountResolved };
+  return { status, accountResolved, accountId: accountId ?? null, semantic: run.semantic ?? null };
 }

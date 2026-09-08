@@ -105,12 +105,10 @@ describe("Revenue Execution API", () => {
     expect((await app.request("/proposals/missing/approve", { method: "POST" })).status).toBe(404);
   });
 
-  it("enforces bearer auth when configured", async () => {
-    const { app } = createSampleApp({ authToken: "secret" });
-    const noAuth = await post(app, "/interactions", { text: "hi", kind: "note" });
-    expect(noAuth.status).toBe(401);
-    const withAuth = await post(app, "/interactions", { text: "hi", kind: "note" }, { authorization: "Bearer secret" });
-    expect(withAuth.status).toBe(201);
+  it("is open when no database is configured (session auth disabled)", async () => {
+    const { app } = createSampleApp();
+    const res = await post(app, "/interactions", { text: "hi", kind: "note" });
+    expect(res.status).toBe(201);
   });
 
   it("rejects an invalid interaction payload", async () => {

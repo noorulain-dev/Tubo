@@ -21,6 +21,24 @@ fields (each an array, defaulting to empty):
 - "blockers": [string]
 - "evidence": [{ source, start, end, text }]
 
+RESOLUTION ENUM — the "resolution" field on decisions, commitments (all kinds),
+taskCandidates, commercialSignals, entityReferences, and temporalExpressions MUST
+be exactly one of:
+  "resolved" | "ambiguous" | "unsupported" | "conflicting" | "missing_context"
+- "resolved": unambiguous and supported by the interaction.
+- "ambiguous": more than one valid reading; set the value to null.
+- "unsupported": outside what the system models.
+- "conflicting": the interaction contradicts itself.
+- "missing_context": required data is absent — set the value to null, do NOT guess.
+NEVER emit "pending", "unresolved", or any other token for "resolution".
+
+EVIDENCE SHAPE — the "evidence" field is ALWAYS an ARRAY of span objects, even when
+there is only a single span. Never emit a bare object for "evidence".
+Each span is exactly: { "source": "conversation", "start": <int>, "end": <int>, "text": "<verbatim>" }.
+
+DEADLINE SHAPE — the nested "deadline" field on commitments/taskCandidates is either
+null or an object: { "text": string, "kind": "exact"|"relative"|"conditional"|"ambiguous", "value": string|null, "resolution": <resolution enum> }.
+
 Evidence span rules:
 - Every material claim MUST include at least one evidence span whose "text" is
   copied verbatim from the interaction and whose "start"/"end" are character

@@ -1,19 +1,45 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { getUserByToken, type AuthUser } from "./auth-service.js";
+import { isDbConfigured } from "./db.js";
+
+/** Paths reachable without a session (OAuth callbacks, auth, health). */
+const PUBLIC_PATHS = new Set([
+  "/health",
+  "/auth/register",
+  "/auth/login",
+  "/gmail/oauth/callback",
+  "/integrations/google-calendar/oauth/callback",
+]);
+
+declare module "hono" {
+  interface ContextVariableMap {
+    user: AuthUser;
+  }
+}
 
 /**
- * Minimal bearer-token auth for the assessment/demo. If no token is configured,
- * authentication is disabled (Sample Mode / local demo). In integration mode the
- * operator sets AUTH_TOKEN and the frontend must present it on mutating routes.
- * The frontend never receives backend credentials; it only holds this token (or
- * a server-side proxy forwards it).
+ * Session-token auth. When DATABASE_URL is absent (tests / no persistence
+ * configured), auth is disabled and every route is open — mirroring the old
+ * "no token configured" behavior. Otherwise the Authorization bearer token is
+ * validated against the sessions table and the authenticated user is attached
+ * to the context.
  */
-export function bearerAuth(token: string | undefined): MiddlewareHandler {
+export function bearerAuth(): MiddlewareHandler {
   return async (c: Context, next) => {
-    if (!token) return next();
+    if (!isDbConfigured()) return next();
+    if (PUBLIC_PATHS.has(c.req.path)) return next();
+
     const header = c.req.header("authorization") ?? "";
-    if (header !== `Bearer ${token}`) {
+    const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
+    if (!token) {
       return c.json({ error: { code: "AUTHENTICATION", message: "Unauthorized" } }, 401);
     }
+
+    const user = await getUserByToken(token).catch(() => null);
+    if (!user) {
+      return c.json({ error: { code: "AUTHENTICATION", message: "Unauthorized" } }, 401);
+    }
+    c.set("user", user);
     return next();
   };
 }

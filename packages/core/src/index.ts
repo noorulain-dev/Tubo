@@ -33,3 +33,6 @@ export * from "./reconciliation/engine.js";
 export * from "./policy/engine.js";
 export * from "./events.js";
 export * from "./executor/executor.js";
+export * from "./llm/openai-provider.js";
+export * from "./stripe/stripe-commercial-provider.js";
+export * from "./calendar/calendar-provider.js";

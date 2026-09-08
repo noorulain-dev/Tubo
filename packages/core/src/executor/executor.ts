@@ -28,21 +28,21 @@ export interface ExecutionRecord {
 }
 
 export interface ExecutionStore {
-  getByExecutionId(id: string): ExecutionRecord | undefined;
-  getBySignature(signature: string): ExecutionRecord | undefined;
-  put(record: ExecutionRecord): void;
+  getByExecutionId(id: string): Promise<ExecutionRecord | undefined>;
+  getBySignature(signature: string): Promise<ExecutionRecord | undefined>;
+  put(record: ExecutionRecord): Promise<void>;
 }
 
 export class InMemoryExecutionStore implements ExecutionStore {
   private readonly byExecution = new Map<string, ExecutionRecord>();
   private readonly bySignature = new Map<string, ExecutionRecord>();
-  getByExecutionId(id: string): ExecutionRecord | undefined {
+  async getByExecutionId(id: string): Promise<ExecutionRecord | undefined> {
     return this.byExecution.get(id);
   }
-  getBySignature(signature: string): ExecutionRecord | undefined {
+  async getBySignature(signature: string): Promise<ExecutionRecord | undefined> {
     return this.bySignature.get(signature);
   }
-  put(record: ExecutionRecord): void {
+  async put(record: ExecutionRecord): Promise<void> {
     this.byExecution.set(record.executionId, record);
     this.bySignature.set(record.proposalSignature, record);
   }
@@ -133,12 +133,12 @@ export class Executor {
     }
 
     // 2. Idempotency: prevent duplicate execution.
-    const byId = this.store.getByExecutionId(executionId);
+    const byId = await this.store.getByExecutionId(executionId);
     if (byId) {
       this.audit.emit({ eventType: EVENTS.DUPLICATE_EXECUTION_PREVENTED, payload: { executionId, reason: "execution_id" } });
       return byId.result;
     }
-    const bySig = this.store.getBySignature(req.proposalSignature);
+    const bySig = await this.store.getBySignature(req.proposalSignature);
     if (bySig) {
       this.audit.emit({ eventType: EVENTS.DUPLICATE_EXECUTION_PREVENTED, payload: { executionId, reason: "proposal_signature" } });
       return bySig.result;
@@ -154,7 +154,7 @@ export class Executor {
         externalRef,
         executedAt: new Date(this.now()).toISOString(),
       };
-      this.store.put({ executionId, proposalSignature: req.proposalSignature, result });
+      await this.store.put({ executionId, proposalSignature: req.proposalSignature, result });
       this.emitWriteOutcome(req.proposal.type, true, executionId);
       return result;
     } catch (err) {

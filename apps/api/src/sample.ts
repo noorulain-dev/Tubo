@@ -8,6 +8,8 @@ import {
 } from "./core.js";
 import { createApp } from "./app.js";
 import { RunService } from "./pipeline.js";
+import { FixedProviderResolver } from "./provider-resolver.js";
+import { InMemoryRunStore } from "./store.js";
 import {
   createCrmRead,
   createCrmWrite,
@@ -27,7 +29,7 @@ export interface SampleWiring {
   reset: () => void;
 }
 
-export function createSampleApp(opts: { llm?: LLMProvider; authToken?: string } = {}): SampleWiring {
+export function createSampleApp(opts: { llm?: LLMProvider } = {}): SampleWiring {
   const state = getSampleState();
   const llm = opts.llm ?? createFixtureLLM();
   const commercial = createSampleCommercial();
@@ -40,8 +42,11 @@ export function createSampleApp(opts: { llm?: LLMProvider; authToken?: string } 
   const interpreter = new SemanticInterpreter(llm);
   const audit = new AuditService(new MemoryAuditSink());
   const executor = new Executor(createCrmWrite(state), createEmailWrite(state), { audit });
-  const service = new RunService({ interpreter, readContext, executor, audit, mode: "sample" });
-  const app = createApp({ service, authToken: opts.authToken, mode: "sample", reset: resetSampleData });
+
+  const resolver = new FixedProviderResolver({ readContext, executor });
+  const store = new InMemoryRunStore();
+  const service = new RunService({ interpreter, resolver, store, mode: "sample" });
+  const app = createApp({ sampleService: service, mode: "sample", reset: resetSampleData });
 
   return { app, service, state, reset: resetSampleData };
 }

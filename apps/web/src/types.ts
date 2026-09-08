@@ -155,6 +155,7 @@ export interface InteractionInput {
   accountId?: string;
   participants?: unknown[];
   truncated?: boolean;
+  mode?: "sample" | "live";
 }
 
 export interface ErrorEnvelope {

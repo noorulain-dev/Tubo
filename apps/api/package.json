@@ -7,13 +7,22 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "tsx src/index.ts",
-    "eval": "tsx src/eval-runner.ts"
+    "eval": "tsx src/eval-runner.ts",
+    "smoke:hubspot": "tsx src/smoke-hubspot.ts",
+    "generate:integration-key": "tsx src/generate-key.ts",
+    "smoke:hubspot-write": "tsx src/smoke-hubspot-write.ts",
+    "smoke:gmail": "tsx src/smoke-gmail.ts",
+    "smoke:gmail-draft": "tsx src/smoke-gmail-draft.ts",
+    "smoke:calendar": "tsx src/smoke-calendar.ts"
   },
   "dependencies": {
-    "hono": "^4.6.14"
+    "dotenv": "^16.4.5",
+    "hono": "^4.6.14",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@hono/node-server": "^1.13.7",
+    "@types/pg": "^8.11.10",
     "tsx": "^4.19.2"
   }
 }

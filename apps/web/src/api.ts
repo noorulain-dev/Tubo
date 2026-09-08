@@ -4,10 +4,29 @@ import type { ErrorEnvelope, InteractionInput, ProposalView, RunView } from "./t
 // this typed client and never contacts HubSpot/Gmail directly.
 const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3000";
 
+const TOKEN_KEY = "revexec.token";
+
+export function getToken(): string | undefined {
+  return localStorage.getItem(TOKEN_KEY) ?? undefined;
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers as Record<string, string> | undefined),
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as ErrorEnvelope | null;
@@ -30,7 +49,90 @@ export interface AuditView {
   steps: string[];
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthResult {
+  token: string;
+  user: AuthUser;
+}
+
+export interface HealthView {
+  status: string;
+  mode: string;
+  liveAvailable: boolean;
+}
+
+export interface IntegrationsView {
+  mode: string;
+  llm: { configured: boolean; provider: "openai" | "deepseek" | null };
+  hubspot: { configured: boolean };
+  gmail: { configured: boolean };
+  stripe: { configured: boolean };
+  live: boolean;
+}
+
+export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar";
+
+export interface ConnectionStatus {
+  stripe: { connected: boolean; needsReauth: boolean };
+  hubspot: { connected: boolean; needsReauth: boolean };
+  gmail: { connected: boolean; needsReauth: boolean };
+  calendar: { connected: boolean; needsReauth: boolean };
+}
+
 export const api = {
+  async login(email: string, password: string): Promise<AuthResult> {
+    const result = await request<AuthResult>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+    setToken(result.token);
+    return result;
+  },
+  async register(email: string, password: string): Promise<AuthResult> {
+    const result = await request<AuthResult>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+    setToken(result.token);
+    return result;
+  },
+  async logout(): Promise<void> {
+    try {
+      await request<{ ok: boolean }>("/auth/logout", { method: "POST" });
+    } finally {
+      clearToken();
+    }
+  },
+  me(): Promise<{ user: AuthUser }> {
+    return request<{ user: AuthUser }>("/auth/me", { method: "GET" });
+  },
+  getHealth(): Promise<HealthView> {
+    return request<HealthView>("/health", { method: "GET" });
+  },
+  getIntegrations(): Promise<IntegrationsView> {
+    return request<IntegrationsView>("/integrations", { method: "GET" });
+  },
+  getGmailOAuthUrl(): Promise<{ url: string }> {
+    const returnTo = encodeURIComponent(window.location.origin);
+    return request<{ url: string }>(`/gmail/oauth/url?returnTo=${returnTo}`, { method: "GET" });
+  },
+  getCalendarOAuthUrl(): Promise<{ url: string }> {
+    const returnTo = encodeURIComponent(window.location.origin);
+    return request<{ url: string }>(`/integrations/google-calendar/oauth/url?returnTo=${returnTo}`, { method: "GET" });
+  },
+  syncCalendar(): Promise<{ synced: number; window: { start: string; end: string } }> {
+    return request<{ synced: number; window: { start: string; end: string } }>(`/integrations/google-calendar/sync`, { method: "POST" });
+  },
+  getConnections(): Promise<ConnectionStatus> {
+    return request<ConnectionStatus>("/connections", { method: "GET" });
+  },
+  connectStripe(secretKey: string): Promise<ConnectionStatus> {
+    return request<ConnectionStatus>("/connections/stripe", { method: "POST", body: JSON.stringify({ secretKey }) });
+  },
+  connectHubspot(accessToken: string): Promise<ConnectionStatus> {
+    return request<ConnectionStatus>("/connections/hubspot", { method: "POST", body: JSON.stringify({ accessToken }) });
+  },
+  disconnectConnection(provider: ConnectionProvider): Promise<ConnectionStatus> {
+    return request<ConnectionStatus>(`/connections/${provider}`, { method: "DELETE" });
+  },
   processInteraction(input: InteractionInput): Promise<RunView> {
     return request<RunView>("/interactions", { method: "POST", body: JSON.stringify(input) });
   },

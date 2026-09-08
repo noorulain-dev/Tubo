@@ -2,12 +2,10 @@ import {
   ReasoningAgent,
   type AgentReadContext,
   type AgentToolCall,
-  type AuditService,
   type CommercialState,
   type ContactRecord,
   type DealRecord,
   type EmailThreadRecord,
-  type Executor,
   type ExecutionRequest,
   type NoteRecord,
   type OperationalContext,
@@ -22,14 +20,14 @@ import {
   reconcile,
   reconcileOperationalState,
 } from "./core.js";
-import { createStore, toRunView, type InMemoryStore, type StoredProposal, type StoredRun } from "./store.js";
+import { toRunView, type RunStore, type StoredProposal, type StoredRun } from "./store.js";
+import type { ProviderResolver } from "./provider-resolver.js";
 import type { AgentActivityItem, InteractionInput, ProposalStatus, ProposalView, RunView } from "./types.js";
 
 export interface RunServiceDeps {
   interpreter: SemanticInterpreter;
-  readContext: AgentReadContext;
-  executor: Executor;
-  audit: AuditService;
+  resolver: ProviderResolver;
+  store: RunStore;
   agentOptions?: ReasoningAgentOptions;
   now?: () => number;
   mode?: "sample" | "integration";
@@ -109,14 +107,14 @@ function toOperationalContext(toolCalls: AgentToolCall[]): OperationalContext {
   return ctx;
 }
 
+/**
+ * Orchestrates a single interaction through the deterministic pipeline and
+ * persists every lifecycle stage through a RunStore, scoped to an owning user.
+ */
 export class RunService {
-  private readonly store: InMemoryStore;
+  constructor(private readonly deps: RunServiceDeps) {}
 
-  constructor(private readonly deps: RunServiceDeps) {
-    this.store = createStore();
-  }
-
-  async process(input: InteractionInput): Promise<RunView> {
+  async process(input: InteractionInput, userId: string): Promise<RunView> {
     const now = this.deps.now ?? (() => Date.now());
     const runId = `run_${now()}_${Math.random().toString(36).slice(2, 8)}`;
     const createdAt = new Date(now()).toISOString();
@@ -136,7 +134,7 @@ export class RunService {
       activity: [],
       policyContext: { commercialState: null, openDeal: null },
     };
-    this.store.runs.set(runId, run);
+    await this.deps.store.saveRun(run, userId);
 
     const interpret = await this.deps.interpreter.interpret({
       text: input.text,
@@ -154,10 +152,13 @@ export class RunService {
     if (!interpret.state) {
       run.status = "failed";
       run.error = interpret.errors.join("; ") || "semantic extraction failed";
+      await this.deps.store.saveRun(run, userId);
       return toRunView(run);
     }
 
-    const agent = new ReasoningAgent(this.deps.readContext, this.deps.agentOptions);
+    const { readContext, executor } = await this.deps.resolver.resolve(userId);
+
+    const agent = new ReasoningAgent(readContext, this.deps.agentOptions);
     const outcome = await agent.run({ state: interpret.state, accountId: input.accountId ?? "unknown", metadata: {} });
     run.activity = buildActivity(outcome.toolCalls);
     const operationalContext = toOperationalContext(outcome.toolCalls);
@@ -194,7 +195,7 @@ export class RunService {
         status: statusForPolicy(policy.action),
       };
       proposals.push(proposal);
-      this.store.proposals.set(proposal.id, { proposal, runId });
+      void this.deps.store.saveProposal(proposal, runId, userId);
     });
 
     run.findings = findings;
@@ -203,83 +204,92 @@ export class RunService {
     run.policyContext = policyContext;
     run.status = proposals.some((p) => p.status === "pending_approval") ? "needs_review" : "done";
 
+    await this.deps.store.saveRun(run, userId);
     return toRunView(run);
   }
 
-  getRun(runId: string): RunView | undefined {
-    const run = this.store.runs.get(runId);
-    return run ? toRunView(run) : undefined;
+  async getRun(runId: string, userId: string): Promise<RunView | undefined> {
+    const rec = await this.deps.store.getRun(runId);
+    if (!rec || rec.userId !== userId) return undefined;
+    return toRunView(rec.run);
   }
 
-  listRuns(): RunView[] {
-    return [...this.store.runs.values()].map(toRunView);
+  async listRuns(userId: string): Promise<RunView[]> {
+    const runs = await this.deps.store.listRuns(userId);
+    return runs.map(toRunView);
   }
 
-  getProposal(proposalId: string): ProposalView | undefined {
-    const record = this.store.proposals.get(proposalId);
-    return record ? this.view(record.proposal) : undefined;
+  async getProposal(proposalId: string, userId: string): Promise<ProposalView | undefined> {
+    const rec = await this.deps.store.getProposal(proposalId);
+    if (!rec || rec.userId !== userId) return undefined;
+    return this.view(rec.proposal);
   }
 
-  editProposal(proposalId: string, edit: { payload?: Record<string, unknown> }): ProposalView | undefined {
-    const record = this.store.proposals.get(proposalId);
-    if (!record) return undefined;
-    const run = this.store.runs.get(record.runId);
+  async editProposal(proposalId: string, userId: string, edit: { payload?: Record<string, unknown> }): Promise<ProposalView | undefined> {
+    const rec = await this.deps.store.getProposal(proposalId);
+    if (!rec || rec.userId !== userId) return undefined;
+    const run = (await this.deps.store.getRun(rec.runId))?.run;
     if (!run) return undefined;
 
     if (edit.payload) {
-      record.proposal.revisions.push({
-        id: `rev_${record.proposal.revisions.length + 1}`,
+      rec.proposal.revisions.push({
+        id: `rev_${rec.proposal.revisions.length + 1}`,
         payload: edit.payload,
         at: new Date().toISOString(),
         by: "user",
       });
-      record.proposal.action = { ...record.proposal.action, payload: edit.payload };
+      rec.proposal.action = { ...rec.proposal.action, payload: edit.payload };
     }
     const policy = evaluateAction(
-      { type: record.proposal.action.type, payload: record.proposal.action.payload as Record<string, unknown> | undefined },
+      { type: rec.proposal.action.type, payload: rec.proposal.action.payload as Record<string, unknown> | undefined },
       run.policyContext,
     );
-    record.proposal.policy = policy;
-    record.proposal.status = statusForPolicy(policy.action);
-    record.proposal.approval = undefined;
-    return this.view(record.proposal);
+    rec.proposal.policy = policy;
+    rec.proposal.status = statusForPolicy(policy.action);
+    rec.proposal.approval = undefined;
+    await this.deps.store.saveProposal(rec.proposal, rec.runId, userId);
+    return this.view(rec.proposal);
   }
 
-  approveProposal(proposalId: string, reviewer: string): ProposalView | undefined {
-    const record = this.store.proposals.get(proposalId);
-    if (!record) return undefined;
-    record.proposal.approval = { decision: "approve", reviewer, decidedAt: new Date().toISOString() };
-    record.proposal.status = "approved";
-    return this.view(record.proposal);
+  async approveProposal(proposalId: string, userId: string, reviewer: string): Promise<ProposalView | undefined> {
+    const rec = await this.deps.store.getProposal(proposalId);
+    if (!rec || rec.userId !== userId) return undefined;
+    rec.proposal.approval = { decision: "approve", reviewer, decidedAt: new Date().toISOString() };
+    rec.proposal.status = "approved";
+    await this.deps.store.saveProposal(rec.proposal, rec.runId, userId);
+    return this.view(rec.proposal);
   }
 
-  rejectProposal(proposalId: string, reviewer: string): ProposalView | undefined {
-    const record = this.store.proposals.get(proposalId);
-    if (!record) return undefined;
-    record.proposal.approval = { decision: "reject", reviewer, decidedAt: new Date().toISOString() };
-    record.proposal.status = "rejected";
-    return this.view(record.proposal);
+  async rejectProposal(proposalId: string, userId: string, reviewer: string): Promise<ProposalView | undefined> {
+    const rec = await this.deps.store.getProposal(proposalId);
+    if (!rec || rec.userId !== userId) return undefined;
+    rec.proposal.approval = { decision: "reject", reviewer, decidedAt: new Date().toISOString() };
+    rec.proposal.status = "rejected";
+    await this.deps.store.saveProposal(rec.proposal, rec.runId, userId);
+    return this.view(rec.proposal);
   }
 
-  async executeProposal(proposalId: string): Promise<ProposalView | undefined> {
-    const record = this.store.proposals.get(proposalId);
-    if (!record) return undefined;
-    const run = this.store.runs.get(record.runId);
+  async executeProposal(proposalId: string, userId: string): Promise<ProposalView | undefined> {
+    const rec = await this.deps.store.getProposal(proposalId);
+    if (!rec || rec.userId !== userId) return undefined;
+    const run = (await this.deps.store.getRun(rec.runId))?.run;
     if (!run) return undefined;
 
+    const { executor } = await this.deps.resolver.resolve(userId);
     const req: ExecutionRequest = {
-      proposal: record.proposal.action,
+      proposal: rec.proposal.action,
       policyContext: run.policyContext,
-      approval: record.proposal.approval,
-      runId: record.runId,
-      interactionFingerprint: `fp_${record.runId}`,
+      approval: rec.proposal.approval,
+      runId: rec.runId,
+      interactionFingerprint: `fp_${rec.runId}`,
       proposalSignature: `sig_${proposalId}`,
       executionId: `exec_${proposalId}`,
     };
-    const result = await this.deps.executor.execute(req);
-    record.proposal.execution = result;
-    record.proposal.status = result.status === "success" ? "executed" : "failed";
-    return this.view(record.proposal);
+    const result = await executor.execute(req);
+    rec.proposal.execution = result;
+    rec.proposal.status = result.status === "success" ? "executed" : "failed";
+    await this.deps.store.saveProposal(rec.proposal, rec.runId, userId);
+    return this.view(rec.proposal);
   }
 
   private view(p: StoredProposal): ProposalView {

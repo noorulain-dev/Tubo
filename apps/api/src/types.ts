@@ -17,6 +17,7 @@ export const InteractionInputSchema = z.object({
   accountId: z.string().optional(),
   participants: z.array(ParticipantSchema).optional(),
   truncated: z.boolean().optional(),
+  mode: z.enum(["sample", "live"]).optional(),
 });
 export type InteractionInput = z.infer<typeof InteractionInputSchema>;
 

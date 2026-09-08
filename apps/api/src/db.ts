@@ -194,5 +194,24 @@ export async function ensureSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (user_id, account_id)
     );
+
+    CREATE TABLE IF NOT EXISTS risk_findings (
+      finding_id          text PRIMARY KEY,
+      user_id             text NOT NULL,
+      account_id          text NOT NULL,
+      type                text NOT NULL,
+      severity            text NOT NULL,
+      title               text NOT NULL,
+      description         text,
+      evidence            jsonb NOT NULL DEFAULT '[]'::jsonb,
+      source_references   jsonb NOT NULL DEFAULT '[]'::jsonb,
+      signals             jsonb NOT NULL DEFAULT '[]'::jsonb,
+      needs_investigation boolean NOT NULL DEFAULT false,
+      status              text NOT NULL DEFAULT 'open',
+      created_at          timestamptz NOT NULL DEFAULT now(),
+      updated_at          timestamptz NOT NULL DEFAULT now(),
+      resolved_at         timestamptz
+    );
+    CREATE INDEX IF NOT EXISTS idx_risk_findings_user_account ON risk_findings(user_id, account_id, status);
   `);
 }

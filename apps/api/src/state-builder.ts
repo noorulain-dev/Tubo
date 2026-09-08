@@ -1,5 +1,4 @@
 import type {
-  AuthorityLevel,
   Commitment,
   ConditionalCommitment,
   Decision,
@@ -9,24 +8,13 @@ import type {
 } from "./core.js";
 
 /**
- * STEP 52 — Account Intelligence State Builder.
+ * STEP 52/53 — Account Intelligence State Builder + bounded commitment lifecycle
+ * and customer-question state.
  *
- * This is the deterministic reducer that turns a sequence of normalized
- * AccountEvents into the latest structured AccountIntelligenceSnapshot.
- *
- * Design invariants:
- *   - Pure: no I/O, no LLM. Every input fact is already persisted in the event
- *     payload (semantic outputs are stored verbatim), so a rebuild never
- *     re-calls the LLM.
- *   - Append-only: history is never erased; "latest" single-value facts are
- *     last-writer-wins among their own authoritative source, while the event
- *     ledger keeps every prior value.
- *   - Source-authoritative: each fact-type has exactly one authoritative source;
- *     a weaker source can never overwrite a stronger one (see FACT_AUTHORITY
- *     rules below). Conflict between authoritative sources is surfaced as
- *     "ambiguous", never silently resolved.
- *   - Tenant-scoped: state is per (user_id, account_id); nothing here merges
- *     across users.
+ * Deterministic reducer: ordered AccountEvents -> AccountIntelligenceSnapshot.
+ * No I/O, no LLM. Every input fact is already persisted in the event payload, so
+ * a rebuild never re-calls the LLM. Source authority is explicit and structural:
+ * a weaker source can never overwrite a stronger one.
  */
 
 export type AccountEventType =
@@ -55,34 +43,53 @@ export interface AccountEvent {
   provenance: string | null;
 }
 
-export type CommitmentStatus = "open" | "fulfilled" | "superseded" | "ambiguous";
+export type CommitmentStatus =
+  | "open"
+  | "in_progress"
+  | "fulfilled"
+  | "overdue"
+  | "blocked"
+  | "cancelled"
+  | "superseded"
+  | "ambiguous";
+
+export type CommitmentType = "internal" | "customer";
+
+export interface EvidenceRef {
+  source: SourceType;
+  reference: string | null;
+}
 
 export interface CommitmentState {
   id: string;
-  action: string;
+  accountId: string | null;
+  type: CommitmentType;
+  description: string;
   owner: string | null;
   ownerResolution: ResolutionState | null;
-  deadlineText: string | null;
-  deadlineValue: string | null;
+  dueDate: string | null;
+  dueDateText: string | null;
+  dueDateResolution: ResolutionState | null;
+  condition: string | null;
   status: CommitmentStatus;
-  source: SourceType;
-  sourceReference: string | null;
-  linkedTaskId: string | null;
-  /** Set when a source (Gmail/HubSpot) later proves the promised work was done. */
-  fulfillment: { source: SourceType; reference: string | null; occurredAt: string } | null;
+  sourceEvidence: EvidenceRef[];
+  relatedTaskIds: string[];
+  relatedEmailIds: string[];
+  fulfillment: EvidenceRef & { occurredAt: string } | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type QuestionStatus = "open" | "answered" | "ambiguous";
+export type QuestionStatus = "open" | "answered" | "ambiguous" | "obsolete";
 
 export interface QuestionState {
   id: string;
   question: string;
+  sourceEvidence: EvidenceRef[];
+  askedAt: string;
+  answer: { text: string; source: SourceType; reference: string | null } | null;
+  answeredAt: string | null;
   status: QuestionStatus;
-  answer: { text: string; source: SourceType; reference: string | null; occurredAt: string } | null;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface DecisionState {
@@ -96,13 +103,10 @@ export interface DecisionState {
 
 export interface AccountIntelligenceSnapshot {
   identity: { companyId?: string; contactId?: string; dealId?: string; name?: string } | null;
-  /** CRM stage (HubSpot). Authoritative source: hubspot. Never overwritten by conversation. */
   stage: string | null;
   stageSource: SourceType | null;
-  /** Subscription/payment/commercial truth. Authoritative source: commercial. */
   commercial: { status?: string; provenance?: string | null } | null;
   decisions: DecisionState[];
-  /** Full commitment history; open ones are those with status === "open". */
   commitments: CommitmentState[];
   questions: QuestionState[];
   blockers: string[];
@@ -110,11 +114,19 @@ export interface AccountIntelligenceSnapshot {
   risks: string[];
   recentEvents: { eventType: AccountEventType; occurredAt: string }[];
   executionGaps: string[];
-  /** Sources that failed to load on the most recent refresh (facts must not be guessed). */
+  /** Compact summary of Step-50 reconciliation/execution gaps (reused, not re-derived). */
+  reconciliationGaps: ReconciliationGapRef[];
   unavailableSources: SourceType[];
   lastReviewed: string | null;
   lastSourceRefresh: string | null;
   version: number;
+}
+
+export interface ReconciliationGapRef {
+  type: string;
+  what: string;
+  title: string;
+  description: string;
 }
 
 export const EMPTY_SNAPSHOT: AccountIntelligenceSnapshot = {
@@ -130,6 +142,7 @@ export const EMPTY_SNAPSHOT: AccountIntelligenceSnapshot = {
   risks: [],
   recentEvents: [],
   executionGaps: [],
+  reconciliationGaps: [],
   unavailableSources: [],
   lastReviewed: null,
   lastSourceRefresh: null,
@@ -137,9 +150,8 @@ export const EMPTY_SNAPSHOT: AccountIntelligenceSnapshot = {
 };
 
 /**
- * The payload shape the state builder reads out of an interaction/meeting event.
- * Semantic outputs are persisted verbatim by the ingestion layer; the builder
- * only reads what is already there (no re-extraction).
+ * Payload shape the state builder reads from interaction/meeting/email events.
+ * Semantic outputs are persisted verbatim; the builder only reads what is there.
  */
 export interface SemanticPayload {
   confirmedCommitments?: Commitment[];
@@ -147,25 +159,19 @@ export interface SemanticPayload {
   conditionalCommitments?: ConditionalCommitment[];
   decisions?: Decision[];
   blockers?: string[];
-  /** Explicit customer questions. Populated by semantic extraction/manual input. */
+  /** Curated customer questions (semantic layer already excludes rhetorical/social). */
   questions?: { id?: string; text: string; resolution?: ResolutionState }[];
-  /** Answers that resolve a prior open question. */
   answers?: { questionId?: string; questionText?: string; text: string }[];
-  /** Owner resolutions that disambiguate a previously-ambiguous commitment. */
-  ownerResolutions?: { commitmentId?: string; action?: string; owner: string | null }[];
+  ownerResolutions?: { commitmentId?: string; description?: string; owner: string | null }[];
 }
 
 /**
- * Source-authority hierarchy (subset of the canonical FACT_AUTHORITY table).
- *
- *   commercial  > conversation  for subscription/payment truth
- *   conversation > CRM metadata  for what the customer literally promised/asked
+ * Source-authority hierarchy:
+ *   commercial > conversation   for subscription/payment truth
+ *   conversation > CRM metadata for what the customer literally promised/asked
  *   tasks/hubspot > transcript    for whether an operational task exists
- *
- * A fact is written to its own single field (stage vs commercial), so a weaker
- * source never overwrites a stronger one structurally. Within a fact-type, newer
- * authoritative evidence supersedes the older "latest" value; the older value
- * remains in the ledger.
+ * Facts are written to their own single field (stage vs commercial), so a weaker
+ * source never overwrites a stronger one structurally.
  */
 const AUTHORITY_RANK: Record<SourceType, number> = {
   commercial: 3,
@@ -176,24 +182,18 @@ const AUTHORITY_RANK: Record<SourceType, number> = {
   system: 0,
 };
 
-function rank(source: SourceType | null | undefined): number {
-  if (!source) return 0;
-  return AUTHORITY_RANK[source] ?? 0;
-}
-
 function norm(text: string | null | undefined): string {
   return (text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function stableId(prefix: string, key: string): string {
-  // Deterministic id from content, so rebuilds are reproducible.
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (Math.imul(31, h) + key.charCodeAt(i)) | 0;
   return `${prefix}_${(h >>> 0).toString(36)}`;
 }
 
-function commitmentKey(action: string, owner: string | null | undefined): string {
-  return `${norm(action)}|${norm(owner)}`;
+function commitmentKey(description: string, owner: string | null | undefined): string {
+  return `${norm(description)}|${norm(owner)}`;
 }
 
 function questionKey(text: string): string {
@@ -207,78 +207,124 @@ function union<T>(a: T[], b: T | T[] | undefined): T[] {
   return [...out];
 }
 
-function timestampOf(event: AccountEvent): string {
-  return event.occurredAt;
+/** Deadline -> dueDate. Only deterministically-resolvable dates carry a value. */
+function deadlineOf(d: TemporalExpression | null | undefined): { value: string | null; text: string | null; resolution: ResolutionState } {
+  if (!d) return { value: null, text: null, resolution: "missing_context" };
+  if (d.value) return { value: d.value, text: d.text, resolution: "resolved" };
+  if (d.kind === "ambiguous" || d.resolution === "ambiguous" || d.resolution === "conflicting") {
+    return { value: null, text: d.text, resolution: "ambiguous" };
+  }
+  if (d.kind === "conditional") return { value: null, text: d.text, resolution: "ambiguous" };
+  // Relative/unsupported without a resolved value: never coerce.
+  return { value: null, text: d.text, resolution: "ambiguous" };
 }
 
 /**
- * Promote a semantic commitment into an open CommitmentState, without ever
- * inferring an owner from vague "we"/"our team" language. Tentative language is
- * never promoted here — only `confirmedCommitments` become open commitments
- * (candidate/conditional commitments are intentionally ignored by the builder).
+ * Promote a semantic commitment into a CommitmentState. Tentative "candidate"
+ * commitments ("we should…") are NEVER promoted. Conditional commitments are
+ * tracked with their `condition` captured. Owner is never inferred from vague
+ * "we"/"our team".
  */
-function ingestCommitments(snapshot: AccountIntelligenceSnapshot, commitments: Commitment[] | undefined, source: SourceType | null, event: AccountEvent): void {
+function ingestCommitments(snapshot: AccountIntelligenceSnapshot, commitments: Commitment[] | undefined, source: SourceType, event: AccountEvent): void {
   for (const c of commitments ?? []) {
     const owner = c.owner?.trim() ? c.owner : null;
-    const ownerResolution: ResolutionState | null = owner ? "resolved" : c.resolution ?? "missing_context";
-    const deadline = deadlineOf(c.deadline);
+    const ownerResolution: ResolutionState = owner ? "resolved" : (c.resolution as ResolutionState) ?? "missing_context";
+    const due = deadlineOf(c.deadline);
     const key = commitmentKey(c.action, owner);
 
-    const existing = snapshot.commitments.find((x) => commitmentKey(x.action, x.owner) === key);
+    const existing = snapshot.commitments.find((x) => commitmentKey(x.description, x.owner) === key);
     if (existing) {
-      // Equivalent commitment already tracked: link, do not duplicate.
-      if (deadline?.value && !existing.deadlineValue) {
-        existing.deadlineValue = deadline.value;
-        existing.deadlineText = deadline.text;
+      if (due.value && !existing.dueDate) {
+        existing.dueDate = due.value;
+        existing.dueDateText = due.text;
+        existing.dueDateResolution = due.resolution;
       }
-      existing.updatedAt = timestampOf(event);
+      existing.updatedAt = event.occurredAt;
+      existing.sourceEvidence = union(existing.sourceEvidence, [{ source, reference: event.sourceReference }]);
       continue;
     }
 
+    const ambiguousOwner = ownerResolution === "ambiguous" || ownerResolution === "conflicting";
+    const ambiguousDate = due.resolution === "ambiguous";
     snapshot.commitments.push({
       id: c.id ?? stableId("cmt", key),
-      action: c.action,
+      accountId: event.accountId,
+      type: "internal",
+      description: c.action,
       owner,
       ownerResolution,
-      deadlineText: deadline?.text ?? null,
-      deadlineValue: deadline?.value ?? null,
-      status: ownerResolution === "ambiguous" || ownerResolution === "conflicting" ? "ambiguous" : "open",
-      source: source ?? "conversation",
-      sourceReference: event.sourceReference,
-      linkedTaskId: null,
+      dueDate: due.value,
+      dueDateText: due.text,
+      dueDateResolution: due.resolution,
+      condition: null,
+      status: ambiguousOwner || ambiguousDate ? "ambiguous" : "open",
+      sourceEvidence: [{ source, reference: event.sourceReference }],
+      relatedTaskIds: [],
+      relatedEmailIds: [],
       fulfillment: null,
-      createdAt: timestampOf(event),
-      updatedAt: timestampOf(event),
+      createdAt: event.occurredAt,
+      updatedAt: event.occurredAt,
     });
   }
 }
 
-function deadlineOf(d: TemporalExpression | null | undefined): { text: string; value: string | null } | null {
-  if (!d) return null;
-  // Only deterministically-resolvable dates carry a value; ambiguous/conditional
-  // deadlines keep their text but never a coerced value.
-  return { text: d.text, value: d.value ?? null };
+function ingestConditionalCommitments(snapshot: AccountIntelligenceSnapshot, commitments: ConditionalCommitment[] | undefined, source: SourceType, event: AccountEvent): void {
+  for (const c of commitments ?? []) {
+    const owner = c.owner?.trim() ? c.owner : null;
+    const ownerResolution: ResolutionState = owner ? "resolved" : (c.resolution as ResolutionState) ?? "missing_context";
+    const due = deadlineOf(c.deadline);
+    const key = commitmentKey(c.action, owner);
+
+    const existing = snapshot.commitments.find((x) => commitmentKey(x.description, x.owner) === key && x.condition);
+    if (existing) {
+      existing.updatedAt = event.occurredAt;
+      continue;
+    }
+
+    snapshot.commitments.push({
+      id: c.id ?? stableId("cmt", key + "|" + norm(c.condition)),
+      accountId: event.accountId,
+      type: "internal",
+      description: c.action,
+      owner,
+      ownerResolution,
+      dueDate: due.value,
+      dueDateText: due.text,
+      dueDateResolution: due.resolution,
+      condition: c.condition,
+      status: "open", // open, gated on condition
+      sourceEvidence: [{ source, reference: event.sourceReference }],
+      relatedTaskIds: [],
+      relatedEmailIds: [],
+      fulfillment: null,
+      createdAt: event.occurredAt,
+      updatedAt: event.occurredAt,
+    });
+  }
 }
 
-function ingestQuestions(snapshot: AccountIntelligenceSnapshot, questions: SemanticPayload["questions"], source: SourceType | null, event: AccountEvent): void {
+function ingestQuestions(snapshot: AccountIntelligenceSnapshot, questions: SemanticPayload["questions"], source: SourceType, event: AccountEvent): void {
   for (const q of questions ?? []) {
     const text = q.text?.trim();
     if (!text) continue;
+    // Rhetorical/social language is filtered upstream; the builder only ingests
+    // explicitly-flagged customer questions and never classifies free text itself.
     const key = questionKey(text);
     if (snapshot.questions.some((x) => questionKey(x.question) === key)) continue;
     const resolution = q.resolution ?? "resolved";
     snapshot.questions.push({
       id: q.id ?? stableId("q", key),
       question: text,
-      status: resolution === "ambiguous" || resolution === "conflicting" ? "ambiguous" : "open",
+      sourceEvidence: [{ source, reference: event.sourceReference }],
+      askedAt: event.occurredAt,
       answer: null,
-      createdAt: timestampOf(event),
-      updatedAt: timestampOf(event),
+      answeredAt: null,
+      status: resolution === "ambiguous" || resolution === "conflicting" ? "ambiguous" : "open",
     });
   }
 }
 
-function ingestDecisions(snapshot: AccountIntelligenceSnapshot, decisions: Decision[] | undefined, source: SourceType | null, event: AccountEvent): void {
+function ingestDecisions(snapshot: AccountIntelligenceSnapshot, decisions: Decision[] | undefined, source: SourceType, event: AccountEvent): void {
   for (const d of decisions ?? []) {
     const key = norm(d.text);
     if (snapshot.decisions.some((x) => norm(x.text) === key)) continue;
@@ -286,86 +332,173 @@ function ingestDecisions(snapshot: AccountIntelligenceSnapshot, decisions: Decis
       id: d.id ?? stableId("dec", key),
       text: d.text,
       decidedBy: d.decidedBy?.trim() ? d.decidedBy : null,
-      source: source ?? "conversation",
+      source,
       sourceReference: event.sourceReference,
-      occurredAt: timestampOf(event),
+      occurredAt: event.occurredAt,
     });
   }
 }
 
-function ingestAnswers(snapshot: AccountIntelligenceSnapshot, answers: SemanticPayload["answers"], source: SourceType | null, event: AccountEvent): void {
+/** Ingest Step-50 reconciliation/execution gaps (reused primitives, not re-derived). */
+function ingestGaps(snapshot: AccountIntelligenceSnapshot, gaps: ReconciliationGapRef[] | undefined): void {
+  for (const g of gaps ?? []) {
+    if (!g?.title) continue;
+    const key = `${String(g.type ?? "")}:${norm(g.title)}`;
+    if (snapshot.reconciliationGaps.some((x) => `${x.type ?? ""}:${norm(x.title)}` === key)) continue;
+    snapshot.reconciliationGaps.push({
+      type: String(g.type ?? ""),
+      what: String(g.what ?? ""),
+      title: String(g.title),
+      description: String(g.description ?? ""),
+    });
+  }
+}
+
+/** Resolve open questions from explicit answer evidence (by id or exact text). */
+function ingestAnswers(snapshot: AccountIntelligenceSnapshot, answers: SemanticPayload["answers"], source: SourceType, reference: string | null, at: string): void {
   for (const a of answers ?? []) {
     if (!a.text?.trim()) continue;
     const q = snapshot.questions.find(
-      (x) => (a.questionId && x.id === a.questionId) || (a.questionText && questionKey(x.question) === questionKey(a.questionText)),
+      (x) => x.status === "open" && ((a.questionId && x.id === a.questionId) || (a.questionText && questionKey(x.question) === questionKey(a.questionText))),
     );
     if (!q) continue;
-    // Only a non-empty answer resolves a question; weak/unavailable evidence
-    // leaves it open (never fabricates an answer).
     q.status = "answered";
-    q.answer = { text: a.text, source: source ?? "conversation", reference: event.sourceReference, occurredAt: timestampOf(event) };
-    q.updatedAt = timestampOf(event);
+    q.answer = { text: a.text, source, reference };
+    q.answeredAt = at;
   }
 }
 
 function ingestOwnerResolutions(snapshot: AccountIntelligenceSnapshot, resolutions: SemanticPayload["ownerResolutions"], event: AccountEvent): void {
   for (const r of resolutions ?? []) {
     const c = snapshot.commitments.find(
-      (x) => (r.commitmentId && x.id === r.commitmentId) || (r.action && norm(x.action) === norm(r.action)),
+      (x) => (r.commitmentId && x.id === r.commitmentId) || (r.description && norm(x.description) === norm(r.description)),
     );
     if (!c) continue;
     if (r.owner?.trim()) {
       c.owner = r.owner;
       c.ownerResolution = "resolved";
-      if (c.status === "ambiguous") c.status = "open";
-      c.updatedAt = timestampOf(event);
+      if (c.status === "ambiguous" && c.dueDateResolution !== "ambiguous") c.status = "open";
+      c.updatedAt = event.occurredAt;
     }
   }
 }
 
-function linkCommitmentToTask(snapshot: AccountIntelligenceSnapshot, p: Record<string, unknown>): void {
+interface CommitmentUpdate {
+  commitmentId?: string;
+  description?: string;
+  status?: CommitmentStatus;
+  owner?: string | null;
+  dueDate?: string | null;
+  type?: CommitmentType;
+}
+
+function applyCommitmentUpdates(snapshot: AccountIntelligenceSnapshot, updates: CommitmentUpdate[] | undefined, event: AccountEvent): void {
+  for (const u of updates ?? []) {
+    const c = snapshot.commitments.find(
+      (x) => (u.commitmentId && x.id === u.commitmentId) || (u.description && norm(x.description) === norm(u.description)),
+    );
+    if (!c) continue;
+    if (u.status) c.status = u.status;
+    if (u.owner !== undefined) {
+      c.owner = u.owner?.trim() ? u.owner : null;
+      c.ownerResolution = u.owner?.trim() ? "resolved" : null;
+    }
+    if (u.dueDate !== undefined) {
+      c.dueDate = u.dueDate;
+      c.dueDateResolution = u.dueDate ? "resolved" : null;
+    }
+    if (u.type) c.type = u.type;
+    c.updatedAt = event.occurredAt;
+  }
+}
+
+interface QuestionUpdate {
+  questionId?: string;
+  question?: string;
+  status?: QuestionStatus;
+}
+
+function applyQuestionUpdates(snapshot: AccountIntelligenceSnapshot, updates: QuestionUpdate[] | undefined, event: AccountEvent): void {
+  for (const u of updates ?? []) {
+    const q = snapshot.questions.find(
+      (x) => (u.questionId && x.id === u.questionId) || (u.question && questionKey(x.question) === questionKey(u.question)),
+    );
+    if (!q) continue;
+    if (u.status) q.status = u.status;
+  }
+}
+
+function linkCommitmentToTask(snapshot: AccountIntelligenceSnapshot, p: Record<string, unknown>, at: string): void {
   const taskId = typeof p.taskId === "string" ? p.taskId : null;
   const commitmentId = typeof p.commitmentId === "string" ? p.commitmentId : null;
-  const action = typeof p.action === "string" ? p.action : null;
+  const description = typeof p.description === "string" ? p.description : typeof p.action === "string" ? p.action : null;
   if (!taskId) return;
   const c = snapshot.commitments.find(
-    (x) => (commitmentId && x.id === commitmentId) || (action && norm(x.action) === norm(action)),
+    (x) => (commitmentId && x.id === commitmentId) || (description && norm(x.description) === norm(description)),
   );
-  if (c && !c.linkedTaskId) c.linkedTaskId = taskId;
+  if (c && !c.relatedTaskIds.includes(taskId)) {
+    c.relatedTaskIds.push(taskId);
+    c.updatedAt = at;
+  }
 }
 
 function fulfillCommitmentByTask(snapshot: AccountIntelligenceSnapshot, p: Record<string, unknown>, event: AccountEvent): void {
   const taskId = typeof p.taskId === "string" ? p.taskId : null;
   if (!taskId) return;
   for (const c of snapshot.commitments) {
-    if (c.linkedTaskId === taskId && c.status === "open") {
+    if (c.relatedTaskIds.includes(taskId) && (c.status === "open" || c.status === "in_progress")) {
       c.status = "fulfilled";
-      c.fulfillment = { source: "tasks", reference: taskId, occurredAt: timestampOf(event) };
-      c.updatedAt = timestampOf(event);
+      c.fulfillment = { source: "tasks", reference: taskId, occurredAt: event.occurredAt };
+      c.updatedAt = event.occurredAt;
     }
   }
 }
 
-function applyFulfillmentEvidence(snapshot: AccountIntelligenceSnapshot, p: Record<string, unknown>, event: AccountEvent): void {
-  // Gmail proves a promised document/communication was delivered.
+/**
+ * Gmail evidence may fulfil a commitment only when the email actually contains
+ * the promised artifact/action. The builder never fulfils on "sounds similar" —
+ * it requires an explicit commitment link (id or exact description) and a
+ * `delivered: true` signal carrying the artifact reference.
+ */
+function applyEmailFulfillment(snapshot: AccountIntelligenceSnapshot, p: Record<string, unknown>, event: AccountEvent): void {
   const reference = typeof p.reference === "string" ? p.reference : event.sourceReference;
   const commitmentId = typeof p.commitmentId === "string" ? p.commitmentId : null;
-  const action = typeof p.action === "string" ? p.action : null;
-  const delivered = p.delivered !== false; // evidence of delivery
+  const description = typeof p.description === "string" ? p.description : typeof p.action === "string" ? p.action : null;
+  const delivered = p.delivered === true;
   if (!delivered) return;
+
   const c = snapshot.commitments.find(
-    (x) => (commitmentId && x.id === commitmentId) || (action && norm(x.action) === norm(action)),
+    (x) => (commitmentId && x.id === commitmentId) || (description && norm(x.description) === norm(description)),
   );
-  if (c && c.status === "open") {
+  if (!c) return;
+  if (!c.relatedEmailIds.includes(reference ?? "")) c.relatedEmailIds.push(reference ?? "");
+  if (c.status === "open" || c.status === "in_progress") {
     c.status = "fulfilled";
-    c.fulfillment = { source: "gmail", reference, occurredAt: timestampOf(event) };
-    c.updatedAt = timestampOf(event);
+    c.fulfillment = { source: "gmail", reference, occurredAt: event.occurredAt };
+    c.updatedAt = event.occurredAt;
   }
 }
 
 /**
- * Fold one event into a snapshot. Pure and deterministic.
+ * Derive time-dependent "overdue" deterministically from dueDate vs now.
+ * Returns a copy so the base snapshot remains pure/stable.
  */
+export function deriveOverdue(snapshot: AccountIntelligenceSnapshot, now: string): AccountIntelligenceSnapshot {
+  const nowMs = Date.parse(now);
+  if (Number.isNaN(nowMs)) return snapshot;
+  const next: AccountIntelligenceSnapshot = {
+    ...snapshot,
+    commitments: snapshot.commitments.map((c) => {
+      if (c.status === "open" && c.dueDate && c.dueDateResolution === "resolved") {
+        const dueMs = Date.parse(c.dueDate);
+        if (!Number.isNaN(dueMs) && dueMs < nowMs) return { ...c, status: "overdue" };
+      }
+      return c;
+    }),
+  };
+  return next;
+}
+
 export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: AccountEvent): AccountIntelligenceSnapshot {
   const next: AccountIntelligenceSnapshot = {
     ...snapshot,
@@ -377,6 +510,7 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
     nextSteps: [...snapshot.nextSteps],
     risks: [...snapshot.risks],
     executionGaps: [...snapshot.executionGaps],
+    reconciliationGaps: [...snapshot.reconciliationGaps],
     unavailableSources: [...snapshot.unavailableSources],
     version: snapshot.version + 1,
   };
@@ -384,32 +518,24 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
 
   const p = event.payload ?? {};
   const source = (event.source as SourceType | null) ?? "system";
-  const occurredAt = timestampOf(event);
+  const occurredAt = event.occurredAt;
 
-  // Provider unavailability: record it and refuse to guess dependent facts.
-  if (Array.isArray(p.unavailableSources)) {
-    next.unavailableSources = union(next.unavailableSources, p.unavailableSources as SourceType[]);
-  }
+  if (Array.isArray(p.unavailableSources)) next.unavailableSources = union(next.unavailableSources, p.unavailableSources as SourceType[]);
 
   switch (event.eventType) {
     case "crm_state_observed":
-      if (p.unavailable === true) {
-        next.unavailableSources = union(next.unavailableSources, "hubspot");
-      } else if (typeof p.stage === "string") {
+      if (p.unavailable === true) next.unavailableSources = union(next.unavailableSources, "hubspot");
+      else if (typeof p.stage === "string") {
         next.stage = p.stage;
         next.stageSource = "hubspot";
         next.lastSourceRefresh = occurredAt;
       }
-      if (p.identity && typeof p.identity === "object") {
-        next.identity = { ...(p.identity as AccountIntelligenceSnapshot["identity"]) };
-      }
+      if (p.identity && typeof p.identity === "object") next.identity = { ...(p.identity as AccountIntelligenceSnapshot["identity"]) };
       break;
 
     case "commercial_state_observed":
-      if (p.unavailable === true) {
-        next.unavailableSources = union(next.unavailableSources, "commercial");
-      } else if (typeof p.status === "string") {
-        // Commercial truth is authoritative; only this event type may write it.
+      if (p.unavailable === true) next.unavailableSources = union(next.unavailableSources, "commercial");
+      else if (typeof p.status === "string") {
         next.commercial = { status: p.status, provenance: (event.provenance ?? (p.provenance as string) ?? null) };
         next.lastSourceRefresh = occurredAt;
       }
@@ -420,18 +546,18 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
     case "meeting_processed": {
       const semantic = (p.semantic ?? {}) as SemanticPayload;
       ingestCommitments(next, semantic.confirmedCommitments, source, event);
+      ingestConditionalCommitments(next, semantic.conditionalCommitments, source, event);
       ingestQuestions(next, semantic.questions, source, event);
       ingestDecisions(next, semantic.decisions, source, event);
       next.blockers = union(next.blockers, semantic.blockers);
-      ingestAnswers(next, semantic.answers, source, event);
+      ingestAnswers(next, semantic.answers, source, event.sourceReference, occurredAt);
       ingestOwnerResolutions(next, semantic.ownerResolutions, event);
-      // Conversational commercial intent is EVIDENCE, never overwrites authoritative
-      // `commercial` state. It is intentionally not applied here.
+      ingestGaps(next, p.gaps as ReconciliationGapRef[] | undefined);
       break;
     }
 
     case "task_created":
-      linkCommitmentToTask(next, p);
+      linkCommitmentToTask(next, p, occurredAt);
       break;
 
     case "task_completed":
@@ -439,16 +565,14 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
       break;
 
     case "email_observed":
-      applyFulfillmentEvidence(next, p, event);
+      applyEmailFulfillment(next, p, event);
+      ingestAnswers(next, p.answers as SemanticPayload["answers"], "gmail", event.sourceReference, occurredAt);
       break;
 
     case "external_action_executed":
       if (typeof p.actionType === "string") {
-        if (p.status === "failed") {
-          next.executionGaps = union(next.executionGaps, `${p.actionType}:${(p.target as string) ?? ""}`);
-        } else if (typeof p.actionType === "string") {
-          next.nextSteps = union(next.nextSteps, `executed:${p.actionType}`);
-        }
+        if (p.status === "failed") next.executionGaps = union(next.executionGaps, `${p.actionType}:${(p.target as string) ?? ""}`);
+        else next.nextSteps = union(next.nextSteps, `executed:${p.actionType}`);
       }
       break;
 
@@ -457,10 +581,11 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
     case "manual_correction":
       next.lastReviewed = occurredAt;
       if (event.eventType === "manual_correction") {
-        // Manual correction is authoritative human override (system source).
         if (typeof p.stage === "string") next.stage = p.stage;
         if (typeof p.status === "string") next.commercial = { status: p.status, provenance: event.provenance ?? "manual_correction" };
         if (p.ownerResolutions) ingestOwnerResolutions(next, p.ownerResolutions as SemanticPayload["ownerResolutions"], event);
+        if (p.commitmentUpdates) applyCommitmentUpdates(next, p.commitmentUpdates as CommitmentUpdate[], event);
+        if (p.questionUpdates) applyQuestionUpdates(next, p.questionUpdates as QuestionUpdate[], event);
         if (p.risks) next.risks = union(next.risks, p.risks as string[]);
       }
       break;
@@ -469,16 +594,14 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
   return next;
 }
 
-/**
- * Rebuild the snapshot deterministically from an ordered (or unordered) event
- * history. Events are sorted ascending by `occurredAt` (stable tie-break by
- * eventId) and de-duplicated by eventId, so duplicate and out-of-order inputs
- * fold to the same state.
- *
- * `prior` is optional: when provided, the fold starts from it (used to warm the
- * reducer from a cached snapshot), otherwise from EMPTY_SNAPSHOT.
- */
-export function buildState(events: AccountEvent[], prior: AccountIntelligenceSnapshot = EMPTY_SNAPSHOT): AccountIntelligenceSnapshot {
+export interface BuildStateOptions {
+  prior?: AccountIntelligenceSnapshot;
+  /** Reference clock for deterministic overdue derivation. */
+  now?: string;
+}
+
+export function buildState(events: AccountEvent[], opts: BuildStateOptions = {}): AccountIntelligenceSnapshot {
+  const prior = opts.prior ?? EMPTY_SNAPSHOT;
   const seen = new Set<string>();
   const ordered = events
     .filter((e) => {
@@ -504,12 +627,12 @@ export function buildState(events: AccountEvent[], prior: AccountIntelligenceSna
     nextSteps: [...(prior.nextSteps ?? [])],
     risks: [...(prior.risks ?? [])],
     executionGaps: [...(prior.executionGaps ?? [])],
+    reconciliationGaps: [...(prior.reconciliationGaps ?? [])],
     unavailableSources: [...(prior.unavailableSources ?? [])],
     recentEvents: [...(prior.recentEvents ?? [])],
   };
 
-  for (const event of ordered) {
-    state = reduceEvent(state, event);
-  }
-  return state;
+  for (const event of ordered) state = reduceEvent(state, event);
+
+  return deriveOverdue(state, opts.now ?? new Date().toISOString());
 }

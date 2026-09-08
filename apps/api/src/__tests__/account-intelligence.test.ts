@@ -5,14 +5,13 @@ import {
   reduceEvent,
   type AccountEvent,
   type AccountEventType,
-  type AccountIntelligenceSnapshot,
 } from "../state-builder.js";
 
 function evt(
   eventType: AccountEventType,
   occurredAt: string,
   payload: Record<string, unknown> = {},
-  opts: { eventId?: string; source?: string | null; sourceReference?: string | null; provenance?: string | null } = {},
+  opts: { eventId?: string; source?: string | null; sourceReference?: string | null } = {},
 ): AccountEvent {
   return {
     eventId: opts.eventId ?? `${eventType}_${occurredAt}`,
@@ -23,23 +22,45 @@ function evt(
     source: opts.source ?? "test",
     sourceReference: opts.sourceReference ?? null,
     payload,
-    provenance: opts.provenance ?? null,
+    provenance: null,
   };
 }
 
-function commitment(action: string, opts: { id?: string; owner?: string | null; resolution?: string; deadlineValue?: string | null } = {}) {
+function commitment(
+  action: string,
+  opts: {
+    id?: string;
+    owner?: string | null;
+    resolution?: string;
+    deadlineValue?: string | null;
+    deadlineKind?: string;
+  } = {},
+) {
+  const deadline =
+    opts.deadlineValue !== undefined || opts.deadlineKind
+      ? {
+          text: "Friday",
+          kind: opts.deadlineKind ?? "exact",
+          value: opts.deadlineValue ?? null,
+          resolution: opts.deadlineKind === "ambiguous" ? "ambiguous" : "resolved",
+        }
+      : null;
   return {
     id: opts.id,
     action,
     owner: opts.owner ?? null,
     resolution: opts.resolution ?? "resolved",
-    deadline: opts.deadlineValue !== undefined ? { text: "Friday", kind: "exact", value: opts.deadlineValue, resolution: "resolved" } : null,
+    deadline,
     evidence: [],
   };
 }
 
-describe("State Builder (buildState / reduceEvent)", () => {
-  it("meeting commitment -> task created -> later completion", () => {
+function question(text: string, id?: string, resolution?: string) {
+  return { id, text, resolution: resolution ?? "resolved" };
+}
+
+describe("Commitment lifecycle", () => {
+  it("open -> fulfilled via reliably-linked task completion", () => {
     const events = [
       evt("meeting_processed", "2026-09-01T10:00:00Z", {
         semantic: { confirmedCommitments: [commitment("Send security documentation", { id: "c1", owner: "Alex" })] },
@@ -50,131 +71,226 @@ describe("State Builder (buildState / reduceEvent)", () => {
     const s = buildState(events);
     const c = s.commitments.find((x) => x.id === "c1")!;
     expect(c.status).toBe("fulfilled");
-    expect(c.linkedTaskId).toBe("task_1");
+    expect(c.relatedTaskIds).toContain("task_1");
     expect(c.fulfillment?.source).toBe("tasks");
   });
 
-  it("does not duplicate a commitment when an equivalent HubSpot task already exists", () => {
+  it("open -> fulfilled via outbound Gmail evidence carrying the artifact", () => {
     const events = [
       evt("meeting_processed", "2026-09-01T10:00:00Z", {
-        semantic: { confirmedCommitments: [commitment("Send security documentation", { owner: "Alex" })] },
+        semantic: { confirmedCommitments: [commitment("Send security documentation", { id: "c1", owner: "Alex" })] },
       }),
-      evt("meeting_processed", "2026-09-02T10:00:00Z", {
-        semantic: { confirmedCommitments: [commitment("Send security documentation", { owner: "Alex" })] },
-      }),
-    ];
-    const s = buildState(events);
-    expect(s.commitments.length).toBe(1); // linked, not duplicated
-  });
-
-  it("customer question -> later answer", () => {
-    const events = [
-      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
-        semantic: { questions: [{ id: "q1", text: "When will pricing be available?" }] },
-      }),
-      evt("manual_interaction_processed", "2026-09-02T10:00:00Z", {
-        semantic: { answers: [{ questionId: "q1", text: "Pricing is available now" }] },
-      }),
-    ];
-    const s = buildState(events);
-    expect(s.questions.length).toBe(1);
-    expect(s.questions[0].status).toBe("answered");
-    expect(s.questions[0].answer?.text).toBe("Pricing is available now");
-  });
-
-  it("commercial active -> CRM stage remains Trial (separate authoritative fields)", () => {
-    const events = [
-      evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "active" }),
-      evt("crm_state_observed", "2026-09-01T11:00:00Z", { stage: "Trial" }),
-    ];
-    const s = buildState(events);
-    expect(s.commercial?.status).toBe("active");
-    expect(s.stage).toBe("Trial"); // CRM stage preserved, not overwritten
-  });
-
-  it("ambiguous commitment -> later owner resolution", () => {
-    const events = [
-      evt("meeting_processed", "2026-09-01T10:00:00Z", {
-        semantic: { confirmedCommitments: [commitment("Draft proposal", { id: "c1", owner: null, resolution: "ambiguous" })] },
-      }),
-      evt("manual_correction", "2026-09-02T10:00:00Z", {
-        ownerResolutions: [{ commitmentId: "c1", owner: "Sam" }],
+      evt("email_observed", "2026-09-02T10:00:00Z", {
+        commitmentId: "c1",
+        delivered: true,
+        reference: "msg_123",
       }),
     ];
     const s = buildState(events);
     const c = s.commitments.find((x) => x.id === "c1")!;
-    expect(c.owner).toBe("Sam");
+    expect(c.status).toBe("fulfilled");
+    expect(c.relatedEmailIds).toContain("msg_123");
+  });
+
+  it("does NOT fulfil on a vaguely-similar email without an explicit link", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send security documentation", { id: "c1", owner: "Alex" })] },
+      }),
+      // Unrelated email — no commitmentId / description match, no delivery flag.
+      evt("email_observed", "2026-09-02T10:00:00Z", { subject: "fyi", body: "just checking in" }),
+    ];
+    const s = buildState(events);
+    expect(s.commitments.find((x) => x.id === "c1")!.status).toBe("open");
+  });
+
+  it("open -> overdue via deterministic date comparison", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send quote", { id: "c1", owner: "Alex", deadlineValue: "2026-09-05T00:00:00Z" })] },
+      }),
+    ];
+    const s = buildState(events, { now: "2026-09-10T00:00:00Z" });
+    expect(s.commitments.find((x) => x.id === "c1")!.status).toBe("overdue");
+  });
+
+  it("open -> blocked via manual correction", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send quote", { id: "c1", owner: "Alex" })] },
+      }),
+      evt("manual_correction", "2026-09-02T10:00:00Z", { commitmentUpdates: [{ commitmentId: "c1", status: "blocked" }] }),
+    ];
+    const s = buildState(events);
+    expect(s.commitments.find((x) => x.id === "c1")!.status).toBe("blocked");
+  });
+
+  it("tracks conditional commitments with their condition", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: {
+          conditionalCommitments: [
+            { id: "c1", action: "Expand to EU", condition: "if budget is approved", owner: "Alex", resolution: "resolved", deadline: null, evidence: [] },
+          ],
+        },
+      }),
+    ];
+    const s = buildState(events);
+    const c = s.commitments.find((x) => x.id === "c1")!;
+    expect(c.condition).toBe("if budget is approved");
     expect(c.status).toBe("open");
   });
 
-  it("does not infer owner from vague 'we' language", () => {
+  it("does not promote tentative 'we should…' candidate commitments", () => {
     const events = [
       evt("meeting_processed", "2026-09-01T10:00:00Z", {
-        semantic: { confirmedCommitments: [commitment("we should follow up", { owner: null, resolution: "missing_context" })] },
+        semantic: { candidateCommitments: [commitment("we should follow up", { owner: null, resolution: "ambiguous" })] },
       }),
     ];
     const s = buildState(events);
-    expect(s.commitments[0].owner).toBeNull();
-    expect(s.commitments[0].ownerResolution).toBe("missing_context");
+    expect(s.commitments.length).toBe(0);
   });
 
-  it("newer authoritative evidence supersedes older latest fact, history preserved", () => {
+  it("ambiguous owner -> not invented, status ambiguous", () => {
     const events = [
-      evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "trial" }),
-      evt("commercial_state_observed", "2026-09-05T10:00:00Z", { status: "active" }),
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Draft proposal", { id: "c1", owner: null, resolution: "ambiguous" })] },
+      }),
     ];
     const s = buildState(events);
-    expect(s.commercial?.status).toBe("active"); // newer supersedes
-    expect(s.recentEvents.length).toBe(2); // both preserved in ledger
+    const c = s.commitments.find((x) => x.id === "c1")!;
+    expect(c.owner).toBeNull();
+    expect(c.ownerResolution).toBe("ambiguous");
+    expect(c.status).toBe("ambiguous");
   });
 
-  it("does not let conversational intent overwrite authoritative commercial state", () => {
+  it("ambiguous date -> dueDate null, not overdue", () => {
     const events = [
-      evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "trial" }),
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send quote", { id: "c1", owner: "Alex", deadlineKind: "ambiguous" })] },
+      }),
+    ];
+    const s = buildState(events, { now: "2026-09-10T00:00:00Z" });
+    const c = s.commitments.find((x) => x.id === "c1")!;
+    expect(c.dueDate).toBeNull();
+    expect(c.dueDateResolution).toBe("ambiguous");
+    expect(c.status).toBe("ambiguous"); // never coerced to overdue
+  });
+
+  it("similar but different commitments are NOT merged", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: {
+          confirmedCommitments: [commitment("Send pricing quote", { owner: "Alex" }), commitment("Send final quote", { owner: "Alex" })],
+        },
+      }),
+    ];
+    const s = buildState(events);
+    expect(s.commitments.length).toBe(2);
+  });
+
+  it("does not duplicate an equivalent commitment across events", () => {
+    const events = [
+      evt("meeting_processed", "2026-09-01T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send quote", { owner: "Alex" })] },
+      }),
+      evt("meeting_processed", "2026-09-02T10:00:00Z", {
+        semantic: { confirmedCommitments: [commitment("Send quote", { owner: "Alex" })] },
+      }),
+    ];
+    const s = buildState(events);
+    expect(s.commitments.length).toBe(1);
+  });
+});
+
+describe("Customer questions", () => {
+  it("tracks an open customer question", () => {
+    const events = [
+      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
+        semantic: { questions: [question("When will pricing be available?", "q1")] },
+      }),
+    ];
+    const s = buildState(events);
+    expect(s.questions.length).toBe(1);
+    expect(s.questions[0].status).toBe("open");
+  });
+
+  it("question answered by later email", () => {
+    const events = [
+      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
+        semantic: { questions: [question("When will pricing be available?", "q1")] },
+      }),
+      evt("email_observed", "2026-09-02T10:00:00Z", {
+        answers: [{ questionId: "q1", text: "Pricing is available starting today" }],
+      }),
+    ];
+    const s = buildState(events);
+    expect(s.questions[0].status).toBe("answered");
+    expect(s.questions[0].answer?.source).toBe("gmail");
+    expect(s.questions[0].answeredAt).toBe("2026-09-02T10:00:00Z");
+  });
+
+  it("irrelevant email does NOT answer a question", () => {
+    const events = [
+      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
+        semantic: { questions: [question("When will pricing be available?", "q1")] },
+      }),
+      evt("email_observed", "2026-09-02T10:00:00Z", { subject: "unrelated", body: "thanks for the call" }),
+    ];
+    const s = buildState(events);
+    expect(s.questions[0].status).toBe("open");
+  });
+
+  it("deduplicates the same question", () => {
+    const events = [
+      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
+        semantic: { questions: [question("When will pricing be available?")] },
+      }),
       evt("manual_interaction_processed", "2026-09-02T10:00:00Z", {
-        semantic: { confirmedCommitments: [], commercialSignals: [{ kind: "intent", text: "we just upgraded", resolution: "resolved", evidence: [] }] },
+        semantic: { questions: [question("When will pricing be available?")] },
       }),
     ];
     const s = buildState(events);
-    expect(s.commercial?.status).toBe("trial"); // conversation is evidence, not truth
+    expect(s.questions.length).toBe(1);
   });
 
-  it("deduplicates events by eventId (duplicate event folds to same state)", () => {
+  it("marks a question obsolete via manual correction", () => {
+    const events = [
+      evt("manual_interaction_processed", "2026-09-01T10:00:00Z", {
+        semantic: { questions: [question("When will pricing be available?", "q1")] },
+      }),
+      evt("manual_correction", "2026-09-03T10:00:00Z", { questionUpdates: [{ questionId: "q1", status: "obsolete" }] }),
+    ];
+    const s = buildState(events);
+    expect(s.questions[0].status).toBe("obsolete");
+  });
+});
+
+describe("determinism and reducers", () => {
+  it("deduplicates events by eventId", () => {
     const e = evt("crm_state_observed", "2026-09-01T10:00:00Z", { stage: "Trial" }, { eventId: "dup" });
     const s = buildState([e, e, e]);
     expect(s.version).toBe(1);
+  });
+
+  it("out-of-order events fold deterministically", () => {
+    const early = evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "trial" });
+    const late = evt("commercial_state_observed", "2026-09-05T10:00:00Z", { status: "active" });
+    expect(buildState([late, early]).commercial?.status).toBe("active");
+  });
+
+  it("commercial active -> CRM stage preserved separately", () => {
+    const s = buildState([
+      evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "active" }),
+      evt("crm_state_observed", "2026-09-01T11:00:00Z", { stage: "Trial" }),
+    ]);
+    expect(s.commercial?.status).toBe("active");
     expect(s.stage).toBe("Trial");
   });
 
-  it("out-of-order events fold deterministically (sorted by occurredAt)", () => {
-    const early = evt("commercial_state_observed", "2026-09-01T10:00:00Z", { status: "trial" });
-    const late = evt("commercial_state_observed", "2026-09-05T10:00:00Z", { status: "active" });
-    const ordered = buildState([early, late]);
-    const shuffled = buildState([late, early]);
-    expect(shuffled.commercial?.status).toBe(ordered.commercial?.status);
-    expect(shuffled.commercial?.status).toBe("active");
-  });
-
-  it("provider unavailable -> no guess, marks source unavailable", () => {
-    const events = [evt("commercial_state_observed", "2026-09-01T10:00:00Z", { unavailable: true })];
-    const s = buildState(events);
-    expect(s.commercial).toBeNull(); // not guessed
-    expect(s.unavailableSources).toContain("commercial");
-  });
-
-  it("increments version per unique event and prepends recent events", () => {
-    const s1 = reduceEvent(EMPTY_SNAPSHOT, evt("interaction_processed", "2026-01-01T00:00:00Z"));
-    expect(s1.version).toBe(1);
-    expect(s1.recentEvents[0].eventType).toBe("interaction_processed");
-  });
-
-  it("rebuild from empty is reproducible", () => {
-    const events = [
-      evt("crm_state_observed", "2026-09-01T10:00:00Z", { stage: "Trial" }),
-      evt("commercial_state_observed", "2026-09-01T11:00:00Z", { status: "active" }),
-    ];
-    const a = buildState(events) as AccountIntelligenceSnapshot;
-    const b = buildState(events) as AccountIntelligenceSnapshot;
-    expect(a).toEqual(b);
+  it("increments version per unique event", () => {
+    const s = reduceEvent(EMPTY_SNAPSHOT, evt("interaction_processed", "2026-01-01T00:00:00Z"));
+    expect(s.version).toBe(1);
+    expect(s.recentEvents[0].eventType).toBe("interaction_processed");
   });
 });

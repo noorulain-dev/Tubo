@@ -195,7 +195,7 @@ export function createApp(opts: CreateAppOptions) {
           status: run.status,
           proposals: run.proposals.map((p) => p.action.type),
           semantic: run.semantic,
-          gaps: run.gaps.map((g) => g.type),
+          gaps: run.gaps.map((g) => ({ type: g.type, what: g.what, title: g.title, description: g.description })),
         },
         provenance: "manual",
         idempotencyKey: `interaction:${userId}:${run.id}`,

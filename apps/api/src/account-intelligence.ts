@@ -7,6 +7,7 @@ import {
   type AccountEventType,
   type AccountIntelligenceSnapshot,
 } from "./state-builder.js";
+import { scanAndPersistAccount } from "./risk-scanner.js";
 
 export type { AccountEvent, AccountEventType, AccountIntelligenceSnapshot } from "./state-builder.js";
 export { EMPTY_SNAPSHOT, buildState, reduceEvent } from "./state-builder.js";
@@ -101,6 +102,8 @@ export async function appendAccountEvent(input: RecordEventInput): Promise<{ eve
   const events = await listAccountEvents(input.userId, input.accountId);
   const snapshot = buildState(events);
   await saveSnapshot(input.userId, input.accountId, snapshot);
+  // Trigger the risk scanner after a material account-state update (idempotent).
+  await scanAndPersistAccount(input.userId, input.accountId, snapshot).catch(() => undefined);
   return { eventId, created, version: snapshot.version };
 }
 

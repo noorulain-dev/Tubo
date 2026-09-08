@@ -6,8 +6,8 @@ import {
   executeApproved,
   planKey,
   type ExecutionPlan,
-} from "../execution-plans.js";
-import type { PolicyContext, ProposedAction } from "../core.js";
+} from "../proposals/execution-plans.js";
+import type { PolicyContext, ProposedAction } from "../shared/core.js";
 
 function action(type: ProposedAction["type"], target: string, payload: Record<string, unknown> = {}, id?: string): ProposedAction {
   return { id, type, target, payload, requiresApproval: true, blocked: false };

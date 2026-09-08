@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { backoffDelayMs, isTransientErrorCode, shouldRetry } from "../jobs.js";
-import { HANDLERS } from "../job-handlers.js";
+import { backoffDelayMs, isTransientErrorCode, shouldRetry } from "../jobs/jobs.js";
+import { HANDLERS } from "../jobs/job-handlers.js";
 
 describe("job retry policy (pure)", () => {
   it("exponential backoff is bounded and monotonic", () => {

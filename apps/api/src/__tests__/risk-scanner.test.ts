@@ -4,13 +4,13 @@ import {
   reconcileFindings,
   findingKey,
   type Finding,
-} from "../risk-scanner.js";
+} from "../accounts/risk-scanner.js";
 import {
   EMPTY_SNAPSHOT,
   type AccountIntelligenceSnapshot,
   type CommitmentState,
   type QuestionState,
-} from "../state-builder.js";
+} from "../accounts/state-builder.js";
 
 const NOW = "2026-09-10T00:00:00Z";
 

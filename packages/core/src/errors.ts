@@ -8,7 +8,8 @@ export type ErrorCode =
   | "TIMEOUT"
   | "DUPLICATE"
   | "POLICY_BLOCK"
-  | "EXECUTION_ERROR";
+  | "EXECUTION_ERROR"
+  | "EMAIL_NOT_VERIFIED";
 
 const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   VALIDATION: 400,
@@ -21,6 +22,7 @@ const STATUS_FOR_CODE: Record<ErrorCode, number> = {
   DUPLICATE: 409,
   POLICY_BLOCK: 422,
   EXECUTION_ERROR: 500,
+  EMAIL_NOT_VERIFIED: 403,
 };
 
 export interface AppErrorOptions {

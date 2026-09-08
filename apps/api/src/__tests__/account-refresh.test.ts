@@ -6,7 +6,7 @@ import {
   EMPTY_SOURCE_STATE,
   type DetectedChange,
   type SourceState,
-} from "../account-refresh.js";
+} from "../accounts/account-refresh.js";
 
 function state(over: Partial<SourceState> = {}): SourceState {
   return { ...EMPTY_SOURCE_STATE, ...over };

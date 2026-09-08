@@ -5,7 +5,7 @@ import {
   reduceEvent,
   type AccountEvent,
   type AccountEventType,
-} from "../state-builder.js";
+} from "../accounts/state-builder.js";
 
 function evt(
   eventType: AccountEventType,

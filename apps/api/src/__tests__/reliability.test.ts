@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildState, reduceEvent, EMPTY_SNAPSHOT, type AccountEvent } from "../state-builder.js";
-import { reconcileFindings, findingKey, type Finding } from "../risk-scanner.js";
+import { buildState, reduceEvent, EMPTY_SNAPSHOT, type AccountEvent } from "../accounts/state-builder.js";
+import { reconcileFindings, findingKey, type Finding } from "../accounts/risk-scanner.js";
 
 function evt(eventType: AccountEvent["eventType"], occurredAt: string, payload?: Record<string, unknown>): AccountEvent {
   return { eventId: `e_${eventType}_${occurredAt}`, userId: "u1", accountId: "acct", eventType, occurredAt, source: "test", sourceReference: null, payload: payload ?? {}, provenance: null };

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createSampleApp, resetSampleData } from "../sample.js";
-import { DEMO_ACCOUNTS } from "../sample-fixtures.js";
+import { createSampleApp, resetSampleData } from "../app/sample.js";
+import { DEMO_ACCOUNTS } from "../shared/sample-fixtures.js";
 
 interface Run {
   mode: string;

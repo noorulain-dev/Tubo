@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createSampleApp, resetSampleData } from "../sample.js";
+import { createSampleApp, resetSampleData } from "../app/sample.js";
 
 interface Proposal {
   id: string;

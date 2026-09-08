@@ -7,9 +7,9 @@ import {
   sortAccounts,
   severityRank,
   type AccountRow,
-} from "../command-center.js";
-import { EMPTY_SNAPSHOT, type AccountIntelligenceSnapshot } from "../state-builder.js";
-import type { Finding } from "../risk-scanner.js";
+} from "../accounts/command-center.js";
+import { EMPTY_SNAPSHOT, type AccountIntelligenceSnapshot } from "../accounts/state-builder.js";
+import type { Finding } from "../accounts/risk-scanner.js";
 
 function snap(over: Partial<AccountIntelligenceSnapshot> = {}): AccountIntelligenceSnapshot {
   return { ...EMPTY_SNAPSHOT, ...over };

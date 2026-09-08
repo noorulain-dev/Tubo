@@ -6,10 +6,10 @@ import {
   MemoryAuditSink,
   SemanticInterpreter,
   type AgentReadContext,
-} from "../core.js";
-import { FixedProviderResolver, GmailTokenManager } from "../provider-resolver.js";
-import { RunService } from "../pipeline.js";
-import { InMemoryRunStore } from "../store.js";
+} from "../shared/core.js";
+import { FixedProviderResolver, GmailTokenManager } from "../integrations/provider-resolver.js";
+import { RunService } from "../runs/pipeline.js";
+import { InMemoryRunStore } from "../runs/store.js";
 import {
   createCrmRead,
   createCrmWrite,
@@ -18,7 +18,7 @@ import {
   createFixtureLLM,
   createSampleCommercial,
   getSampleState,
-} from "../sample-fixtures.js";
+} from "../shared/sample-fixtures.js";
 
 function makeService(opts: { store?: InMemoryRunStore; executionStore?: InMemoryExecutionStore } = {}) {
   const state = getSampleState();

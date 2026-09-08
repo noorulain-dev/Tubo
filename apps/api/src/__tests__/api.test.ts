@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createSampleApp } from "../sample.js";
-import type { LLMProvider } from "../core.js";
+import { createSampleApp } from "../app/sample.js";
+import type { LLMProvider } from "../shared/core.js";
 
 const commitmentLLM: LLMProvider = {
   generate: async () => ({

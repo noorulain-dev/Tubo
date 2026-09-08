@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildDefaultTools, MissingContextError, type AgentReadContext } from "../core.js";
-import { Investigator, planForFinding, type InvestigationOutcome } from "../investigation.js";
-import type { Finding, FindingType } from "../risk-scanner.js";
+import { buildDefaultTools, MissingContextError, type AgentReadContext } from "../shared/core.js";
+import { Investigator, planForFinding, type InvestigationOutcome } from "../accounts/investigation.js";
+import type { Finding, FindingType } from "../accounts/risk-scanner.js";
 
 function finding(type: FindingType, over: Partial<Finding> = {}): Finding {
   return {

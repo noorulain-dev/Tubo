@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildDefaultTools, isPlaceholderToken } from "../core.js";
-import { buildReadContext, type EvalCase } from "../eval-shared.js";
+import { buildDefaultTools, isPlaceholderToken } from "../shared/core.js";
+import { buildReadContext, type EvalCase } from "../evaluation/eval-shared.js";
 
 const EVALS_DIR = resolve(process.cwd(), "../../evals");
 const cases = (JSON.parse(readFileSync(resolve(EVALS_DIR, "cases.json"), "utf-8")).cases as EvalCase[]);

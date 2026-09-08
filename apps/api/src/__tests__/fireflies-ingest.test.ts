@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildCanonicalInteraction } from "../canonical-interaction.js";
-import { ingestMeetingArtifact, type FirefliesIngestDeps } from "../fireflies-ingest.js";
-import type { MeetingArtifact } from "../core.js";
+import { buildCanonicalInteraction } from "../accounts/canonical-interaction.js";
+import { ingestMeetingArtifact, type FirefliesIngestDeps } from "../accounts/fireflies-ingest.js";
+import type { MeetingArtifact } from "../shared/core.js";
 
 const artifact: MeetingArtifact = {
   provider: "fireflies",

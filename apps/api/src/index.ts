@@ -1,11 +1,11 @@
 import { config as loadDotenv } from "dotenv";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
-import { integrationStatus, isLiveConfigured, loadConfig } from "./core.js";
-import { createSampleApp } from "./sample.js";
-import { createLiveApp } from "./live.js";
-import { createApp } from "./app.js";
-import { ensureSchema } from "./db.js";
+import { integrationStatus, isLiveConfigured, loadConfig } from "./shared/core.js";
+import { createSampleApp } from "./app/sample.js";
+import { createLiveApp } from "./app/live.js";
+import { createApp } from "./app/app.js";
+import { ensureSchema } from "./database/db.js";
 
 // Load .env from repo root and/or the workspace cwd (whichever runs the server).
 for (const p of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {

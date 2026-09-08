@@ -5,8 +5,8 @@ import {
   isConsequential,
   isInjection,
   FACT_AUTHORITY,
-} from "../core.js";
-import type { PolicyContext } from "../core.js";
+} from "../shared/core.js";
+import type { PolicyContext } from "../shared/core.js";
 
 const ctx: PolicyContext = { commercialState: null, openDeal: null };
 

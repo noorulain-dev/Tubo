@@ -7,7 +7,7 @@ import { bearerAuth } from "./auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.js";
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "./gmail-oauth.js";
-import { syncCalendar } from "./calendar-sync.js";
+import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
 import { getChannelUser, registerWatch } from "./calendar-watch.js";
 import { enqueue } from "./jobs.js";
 import type { RunService } from "./pipeline.js";
@@ -419,6 +419,16 @@ export function createApp(opts: CreateAppOptions) {
     } catch (err) {
       return handleError(c, err);
     }
+  });
+
+  app.get("/integrations/google-calendar/events", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const start = c.req.query("start");
+    const end = c.req.query("end");
+    if (!start || !end) return c.json(errorEnvelope("VALIDATION", "start and end are required"), 400);
+    const events = await listCalendarEvents(user.id, new Date(start), new Date(end));
+    return c.json({ events });
   });
 
   app.post("/integrations/google-calendar/watch", async (c) => {

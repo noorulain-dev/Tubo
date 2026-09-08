@@ -1,5 +1,38 @@
 /* Primitives — Revenue Execution OS design system (uses tokens from theme.css). */
 
+/* Calendar drawer (day grid) */
+.calendar-drawer { width: 420px; }
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cal-date { font-size: 14px; font-weight: 600; }
+.cal-grid { display: flex; flex-direction: column; }
+.cal-hour {
+  display: flex;
+  border-bottom: 1px solid var(--divider);
+  min-height: 40px;
+}
+.cal-hour-label {
+  width: 52px;
+  padding-top: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+.cal-hour-events { flex: 1; padding: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+.cal-event {
+  background: var(--surface-2);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.cal-event-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.cal-event-time { font-size: 11px; color: var(--text-2); }
+
 /* Legacy accent overrides — replace old green fills with the new lime/neutral scheme. */
 .brand-mark {
   background: transparent;

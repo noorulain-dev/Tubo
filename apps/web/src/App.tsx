@@ -9,6 +9,7 @@ import { RunsScreen } from "./screens/RunsScreen";
 import { EvaluationScreen } from "./screens/EvaluationScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LoginScreen } from "./screens/LoginScreen";
+import { CalendarDrawer } from "./screens/CalendarDrawer";
 
 export default function App() {
   const [view, setView] = useState("process");
@@ -16,6 +17,7 @@ export default function App() {
   const { run, setRun, loading, error } = useRun(runId);
   const [auditOpen, setAuditOpen] = useState(false);
   const [audit, setAudit] = useState<AuditView | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -91,10 +93,13 @@ export default function App() {
       <main className="main">
         <div className="user-bar">
           <span className="helper">{user.email}</span>
+          <Button variant="secondary" onClick={() => setCalendarOpen(true)}>Calendar</Button>
           <Button variant="ghost" onClick={() => void handleLogout()}>Log out</Button>
         </div>
         {content}
       </main>
+
+      <CalendarDrawer open={calendarOpen} onClose={() => setCalendarOpen(false)} />
 
       {auditOpen && (
         <>

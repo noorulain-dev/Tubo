@@ -69,3 +69,34 @@ export async function syncCalendar(userId: string): Promise<CalendarSyncResult> 
 
   return { synced: events.length, window: { start: start.toISOString(), end: end.toISOString() } };
 }
+
+export interface CalendarEventView {
+  id: string;
+  title: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  meetingUrl: string | null;
+  organizerEmail: string | null;
+  status: string;
+}
+
+/** Read persisted calendar events (user-scoped) for a time range. */
+export async function listCalendarEvents(userId: string, start: Date, end: Date): Promise<CalendarEventView[]> {
+  const pool = getPool();
+  const res = await pool.query(
+    `SELECT provider_event_id, title, start_at, end_at, meeting_url, organizer_email, status
+     FROM calendar_events
+     WHERE user_id = $1 AND start_at < $3 AND end_at > $2
+     ORDER BY start_at`,
+    [userId, start.toISOString(), end.toISOString()],
+  );
+  return (res.rows as Record<string, unknown>[]).map((r) => ({
+    id: String(r.provider_event_id),
+    title: (r.title as string) ?? null,
+    startAt: r.start_at ? new Date(r.start_at as string).toISOString() : null,
+    endAt: r.end_at ? new Date(r.end_at as string).toISOString() : null,
+    meetingUrl: (r.meeting_url as string) ?? null,
+    organizerEmail: (r.organizer_email as string) ?? null,
+    status: String(r.status),
+  }));
+}

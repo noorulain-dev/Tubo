@@ -122,6 +122,13 @@ export const api = {
   syncCalendar(): Promise<{ synced: number; window: { start: string; end: string } }> {
     return request<{ synced: number; window: { start: string; end: string } }>(`/integrations/google-calendar/sync`, { method: "POST" });
   },
+  getCalendarEvents(start: string, end: string): Promise<{
+    events: { id: string; title: string | null; startAt: string | null; endAt: string | null; meetingUrl: string | null; organizerEmail: string | null; status: string }[];
+  }> {
+    return request<{
+      events: { id: string; title: string | null; startAt: string | null; endAt: string | null; meetingUrl: string | null; organizerEmail: string | null; status: string }[];
+    }>(`/integrations/google-calendar/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  },
   connectFireflies(apiKey: string): Promise<ConnectionStatus> {
     return request<ConnectionStatus>("/connections/fireflies", { method: "POST", body: JSON.stringify({ apiKey }) });
   },

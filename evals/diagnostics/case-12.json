@@ -1,0 +1,62 @@
+{
+  "id": "case-12",
+  "name": "Truncated input or unavailable required source",
+  "input": {
+    "interaction_text": "Marcus Reed: Alright, so for the Kingsbridge renewal, the customer said they will commit to... [transcript truncated]",
+    "account_id": "co-012"
+  },
+  "expected": {
+    "has_confirmed_commitment": false,
+    "owner_status": "unresolved",
+    "date_status": "unresolved",
+    "required_retrieval": [
+      "hubspot",
+      "tasks",
+      "commercial"
+    ],
+    "reconciliation_classification": "unsafe"
+  },
+  "actual_semantic": {
+    "commitment_count": 0,
+    "has_resolved_owner": false,
+    "has_resolved_date": false,
+    "commitments": [],
+    "signal_kinds": [
+      "renewal"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": false
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot"
+    ],
+    "missing_required": [
+      "tasks",
+      "commercial"
+    ]
+  },
+  "reconciliation": {
+    "classifications": [
+      "ambiguous"
+    ]
+  },
+  "first_divergence": "AGENT_RETRIEVAL"
+}

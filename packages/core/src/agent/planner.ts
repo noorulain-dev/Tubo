@@ -43,22 +43,16 @@ export class DeterministicToolPlanner implements ToolPlanner {
     const reqs: ToolRequest[] = [];
     const accountId = ctx.accountId;
 
-    const hasTaskLike =
-      s.confirmedCommitments.length +
-        s.candidateCommitments.length +
-        s.conditionalCommitments.length +
-        s.taskCandidates.length >
-      0;
     const hasUnresolvedPerson = s.entityReferences.some(
       (e) => e.kind === "person" && e.resolution !== "resolved",
     );
 
-    if (s.confirmedCommitments.length > 0) {
-      reqs.push({ tool: "get_open_deal", reasonCategory: "commitment_validation", args: { accountId } });
-    }
-    if (hasTaskLike) {
-      reqs.push({ tool: "get_open_tasks", reasonCategory: "task_deduplication", args: { accountId } });
-    }
+    // PART 7 baseline: the authoritative reconciliation sources (deal stage + open
+    // tasks) are always retrieved. This is a bounded 2-read baseline, not
+    // retrieve-all — contacts/notes/email are still only retrieved on signal.
+    reqs.push({ tool: "get_open_deal", reasonCategory: "crm_state_validation", args: { accountId } });
+    reqs.push({ tool: "get_open_tasks", reasonCategory: "task_deduplication", args: { accountId } });
+
     if (s.taskCandidates.length > 0) {
       reqs.push({
         tool: "check_existing_action",
@@ -69,12 +63,13 @@ export class DeterministicToolPlanner implements ToolPlanner {
     if (hasUnresolvedPerson) {
       reqs.push({ tool: "get_contacts", reasonCategory: "identity_resolution", args: { accountId } });
     }
-    if (s.decisions.length > 0) {
-      reqs.push({ tool: "get_open_deal", reasonCategory: "crm_state_validation", args: { accountId } });
-    }
     if (s.commercialSignals.length > 0) {
       reqs.push({ tool: "get_commercial_state", reasonCategory: "commercial_state_validation", args: { accountId } });
-      reqs.push({ tool: "get_open_deal", reasonCategory: "crm_state_validation", args: { accountId } });
+    }
+    // PART 6: a fact claim ("signed/paid/sent/delivered") must be verified against
+    // the authoritative sent-communication source (gmail), not just commercial/CRM.
+    if (s.commercialSignals.some((sig) => sig.kind === "claims_subscribed")) {
+      reqs.push({ tool: "get_outbound_communication", reasonCategory: "email_validation", args: { accountId } });
     }
     if (ctx.metadata.threadId) {
       reqs.push({ tool: "get_email_thread", reasonCategory: "email_validation", args: { threadId: ctx.metadata.threadId } });

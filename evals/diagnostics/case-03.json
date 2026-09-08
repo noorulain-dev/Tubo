@@ -1,0 +1,65 @@
+{
+  "id": "case-03",
+  "name": "Ambiguous owner / identity",
+  "input": {
+    "interaction_text": "Unknown: Followed up with the Brightline account. I'll have the team send over the security questionnaire and data-processing addendum this week.\nUnknown: Whoever picks it up, make sure the security docs go out before the renewal call.",
+    "account_id": "co-003"
+  },
+  "expected": {
+    "has_confirmed_commitment": true,
+    "owner_status": "ambiguous",
+    "date_status": "ambiguous",
+    "required_retrieval": [
+      "hubspot",
+      "tasks"
+    ],
+    "reconciliation_classification": "ambiguous"
+  },
+  "actual_semantic": {
+    "commitment_count": 0,
+    "has_resolved_owner": false,
+    "has_resolved_date": false,
+    "commitments": [],
+    "signal_kinds": [
+      "renewal"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "check_existing_action",
+        "reason": "execution_gap_check",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": false
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "tasks",
+      "hubspot"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "missing",
+      "ambiguous"
+    ]
+  },
+  "first_divergence": "SEMANTIC_MODEL"
+}

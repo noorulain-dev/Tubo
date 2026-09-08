@@ -1,7 +1,7 @@
 import type { SemanticState } from "../semantic.js";
 import type { LLMProvider } from "../providers.js";
 import { buildInterpretPrompt } from "./prompt.js";
-import { enforceRules, type RulesContext } from "./rules.js";
+import { enforceRules, isInjectionText, type RulesContext } from "./rules.js";
 import { validateEvidence, validateSemanticState } from "./validate.js";
 import type { InterpretInput, InterpretResult } from "./types.js";
 
@@ -49,10 +49,17 @@ export class SemanticInterpreter {
       };
       const ruled = enforceRules(validated, rulesCtx);
       corrections = ruled.corrections;
-      state = ruled.state;
+      state = {
+        ...ruled.state,
+        truncated: input.truncated === true,
+        injected: isInjectionText(input.text),
+      };
 
       if (input.truncated) {
         state = { ...state, blockers: [...state.blockers, "interaction source is truncated"] };
+      }
+      if (state.injected) {
+        state = { ...state, blockers: [...state.blockers, "prompt injection detected"] };
       }
 
       const issues = validateEvidence(state, input.text);

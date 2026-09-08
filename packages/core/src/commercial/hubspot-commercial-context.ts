@@ -52,10 +52,12 @@ export function mapCommercialStatus(
   return map[key] ?? "none";
 }
 
+const INACTIVE_STATUSES: SubscriptionStatus[] = ["none", "canceled", "expired"];
+
 export function buildStateFromSubscription(accountId: string, rec: HubSpotSubscriptionRecord): CommercialState {
   const status: SubscriptionStatus = mapCommercialStatus(rec.status);
   const subscription: SubscriptionState | null =
-    status === "none" ? null : { status, plan: rec.plan ?? null, startedAt: rec.startAt ?? null, endedAt: rec.endAt ?? null };
+    INACTIVE_STATUSES.includes(status) ? null : { status, plan: rec.plan ?? null, startedAt: rec.startAt ?? null, endedAt: rec.endAt ?? null };
   return {
     accountId,
     trial: subTrial(status),
@@ -73,7 +75,7 @@ export function buildStateFromProperty(
 ): CommercialState {
   const status: SubscriptionStatus = mapCommercialStatus(props[mapping.statusProperty], mapping.statusValues);
   const subscription: SubscriptionState | null =
-    status === "none"
+    INACTIVE_STATUSES.includes(status)
       ? null
       : {
           status,

@@ -1,14 +1,15 @@
 import { config as loadDotenv } from "dotenv";
 import { resolve } from "node:path";
 import { ensureSchema } from "./db.js";
-import { claimNext, completeJob, emitJobEvent, enqueue, failJob, listConnectedUserIds, type Job, type JobType } from "./jobs.js";
+import { claimNext, completeJob, emitJobEvent, enqueue, failJob, listConnectedUserIds, reclaimStaleRunning, type Job, type JobType } from "./jobs.js";
 import { HANDLERS } from "./job-handlers.js";
 import { listExpiringChannels, registerWatch } from "./calendar-watch.js";
+import { listTrackedAccounts } from "./account-refresh.js";
 import { createLiveApp } from "./live.js";
 import { setPipelineService } from "./pipeline-service.js";
 import { isLiveConfigured, loadConfig } from "./core.js";
 
-const ALL_TYPES: JobType[] = ["calendar.sync", "fireflies.sync", "fireflies.fetch", "interaction.process"];
+const ALL_TYPES: JobType[] = ["calendar.sync", "fireflies.sync", "fireflies.fetch", "interaction.process", "account.refresh"];
 
 function classify(err: unknown): { code: string; transient: boolean } {
   const status = (err as { status?: number } | undefined)?.status;
@@ -39,12 +40,21 @@ function hourBucket(): string {
 }
 
 async function scheduleScan(): Promise<void> {
+  // Reclaim jobs left "running" by a prior crashed worker.
+  await reclaimStaleRunning().catch(() => undefined);
+
   // Calendar sync is the only periodic driver: it discovers meetings and, in
   // handleCalendarSync, schedules the one-shot Fireflies discovery 10 minutes
   // after each meeting ends (event-driven — no endless Fireflies polling).
   const calendarUsers = await listConnectedUserIds("google-calendar");
   for (const userId of calendarUsers) {
     await enqueue({ type: "calendar.sync", userId, idempotencyKey: `cal:sync:${userId}:${hourBucket()}` });
+  }
+
+  // Conservative tracked-account refresh (hourly bucket). Selectively re-reads
+  // HubSpot/Gmail source state and emits events only on material change.
+  for (const acc of await listTrackedAccounts()) {
+    await enqueue({ type: "account.refresh", userId: acc.userId, resourceRef: acc.accountId, idempotencyKey: `acct:refresh:${acc.userId}:${acc.accountId}:${hourBucket()}` });
   }
 
   // Renew Calendar watch channels before they expire (Google channels last ~1 week).

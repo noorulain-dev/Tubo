@@ -8,6 +8,11 @@
     "test": "vitest run",
     "dev": "tsx src/index.ts",
     "eval": "tsx src/eval-runner.ts",
+    "eval:system": "tsx src/system-eval-runner.ts",
+    "eval:os": "tsx src/os-eval-runner.ts",
+    "eval:arch-compare": "tsx src/architecture-comparison.ts",
+    "eval:diagnostics": "tsx src/diagnostics.ts",
+    "eval:model-compare": "tsx src/model-comparison.ts",
     "smoke:hubspot": "tsx src/smoke-hubspot.ts",
     "generate:integration-key": "tsx src/generate-key.ts",
     "smoke:hubspot-write": "tsx src/smoke-hubspot-write.ts",
@@ -15,22 +20,27 @@
     "smoke:gmail-draft": "tsx src/smoke-gmail-draft.ts",
     "smoke:calendar": "tsx src/smoke-calendar.ts",
     "smoke:fireflies": "tsx src/smoke-fireflies.ts",
+    "smoke:openai-models": "tsx src/smoke-openai-models.ts",
     "worker": "tsx src/worker.ts",
+    "predeploy:check": "tsx src/predeploy-check.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "assessment:hubspot:setup": "tsx src/assessment-hubspot-setup.ts",
     "assessment:prepare": "tsx src/assessment-prepare.ts",
     "assessment:cleanup": "tsx src/assessment-cleanup.ts",
+    "assessment:refresh-account": "tsx src/assessment-refresh-account.ts",
     "live:check": "tsx src/live-check.ts",
     "live:test-writes": "tsx src/live-test-writes.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "hono": "^4.6.14",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "pino": "^9.14.0"
   },
   "devDependencies": {
     "@hono/node-server": "^1.13.7",
     "@types/pg": "^8.11.10",
+    "pino-pretty": "^11.3.0",
     "tsx": "^4.19.2"
   }
 }

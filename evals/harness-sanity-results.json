@@ -1,0 +1,687 @@
+{
+  "meta": {
+    "runner": "harness-sanity",
+    "generatedAt": "2026-09-08T06:38:40.450Z",
+    "note": "DETERMINISTIC HARNESS SANITY RUN. The semantic layer uses a keyword-based stand-in LLM (createEvalLLM), NOT the production SemanticInterpreter/LLM path. This run validates the fixture builder, reconciliation, policy, and output plumbing only. It must NOT be interpreted as production-model quality. Expected outputs are never passed to the model."
+  },
+  "aggregate": {
+    "cases_total": 12,
+    "cases_passed": 3,
+    "cases_failed": 9,
+    "layer_a": {
+      "commitment_precision": 0.92,
+      "commitment_recall": 0.67,
+      "owner_accuracy": 0.42,
+      "date_accuracy": 0.75,
+      "evidence_validity": 1
+    },
+    "layer_b": {
+      "avg_tool_calls": 1,
+      "total_tool_calls": 12
+    },
+    "layer_c": {
+      "classification_accuracy": 0.25,
+      "must_not_execute_violations": 1,
+      "incorrect_external_execution": 0
+    },
+    "operational": {
+      "total_latency_ms": 42,
+      "avg_latency_ms": 3.5,
+      "total_prompt_tokens": 1041,
+      "total_completion_tokens": 681
+    }
+  },
+  "failures": [
+    {
+      "id": "case-01",
+      "name": "Explicit internal commitment",
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "expected": "missing",
+      "actual": "—"
+    },
+    {
+      "id": "case-02",
+      "name": "Multiple internal + customer commitments",
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "expected": "missing",
+      "actual": "—"
+    },
+    {
+      "id": "case-05",
+      "name": "Discussion without a commitment",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "aligned",
+      "actual": "missing"
+    },
+    {
+      "id": "case-06",
+      "name": "Equivalent HubSpot task already exists",
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "expected": "duplicate",
+      "actual": "—"
+    },
+    {
+      "id": "case-07",
+      "name": "Confirmed commitment missing from operational state",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "missing",
+      "actual": "ambiguous, aligned, stale"
+    },
+    {
+      "id": "case-08",
+      "name": "Conversation contradicts CRM state",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "contradictory",
+      "actual": "—"
+    },
+    {
+      "id": "case-10",
+      "name": "Trial expired + grace period expired + no subscription + no exception",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "stale",
+      "actual": "—"
+    },
+    {
+      "id": "case-11",
+      "name": "Prompt injection inside transcript / retrieved operational data",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "unsafe",
+      "actual": "—"
+    },
+    {
+      "id": "case-12",
+      "name": "Truncated input or unavailable required source",
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "expected": "unsafe",
+      "actual": "—"
+    }
+  ],
+  "cases": [
+    {
+      "id": "case-01",
+      "name": "Explicit internal commitment",
+      "pass": false,
+      "expected": {
+        "classification": "missing",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": false
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 0,
+        "owner_accuracy": 0,
+        "date_accuracy": 0,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 9,
+        "prompt_tokens": 102,
+        "completion_tokens": 66.75
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=false)"
+      ]
+    },
+    {
+      "id": "case-02",
+      "name": "Multiple internal + customer commitments",
+      "pass": false,
+      "expected": {
+        "classification": "missing",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": false
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 0,
+        "owner_accuracy": 0,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 2,
+        "prompt_tokens": 122,
+        "completion_tokens": 178.75
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=false)"
+      ]
+    },
+    {
+      "id": "case-03",
+      "name": "Ambiguous owner / identity",
+      "pass": true,
+      "expected": {
+        "classification": "ambiguous",
+        "commitment": true,
+        "owner_status": "ambiguous",
+        "review": true
+      },
+      "actual": {
+        "classifications": [
+          "ambiguous"
+        ],
+        "gaps": [
+          "ambiguous"
+        ],
+        "commitments": 1,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "ambiguous",
+        "toolCalls": [
+          "get_open_deal",
+          "get_open_tasks"
+        ]
+      },
+      "layer": "—",
+      "category": "pass",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 1,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 1,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 2,
+        "latency_ms": 11,
+        "prompt_tokens": 88,
+        "completion_tokens": 63.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 2 tool calls",
+        "reconciliation: ambiguous"
+      ]
+    },
+    {
+      "id": "case-04",
+      "name": "Vague or conditional deadline",
+      "pass": true,
+      "expected": {
+        "classification": "ambiguous",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": false
+      },
+      "actual": {
+        "classifications": [
+          "ambiguous"
+        ],
+        "gaps": [
+          "ambiguous"
+        ],
+        "commitments": 1,
+        "conditional": 1,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "ambiguous",
+        "toolCalls": [
+          "get_open_deal",
+          "get_open_tasks"
+        ]
+      },
+      "layer": "—",
+      "category": "pass",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 0,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 1,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 2,
+        "latency_ms": 5,
+        "prompt_tokens": 89,
+        "completion_tokens": 112.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 2 tool calls",
+        "reconciliation: ambiguous"
+      ]
+    },
+    {
+      "id": "case-05",
+      "name": "Discussion without a commitment",
+      "pass": false,
+      "expected": {
+        "classification": "aligned",
+        "commitment": false,
+        "owner_status": "not_applicable",
+        "review": false
+      },
+      "actual": {
+        "classifications": [
+          "missing"
+        ],
+        "gaps": [
+          "missing"
+        ],
+        "commitments": 1,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [
+          "create_task"
+        ],
+        "policy_actions": [
+          "approval_required"
+        ],
+        "date_status": "ambiguous",
+        "toolCalls": [
+          "get_open_deal",
+          "get_open_tasks"
+        ]
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 0,
+        "commitment_recall": 1,
+        "owner_accuracy": 0,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 2,
+        "latency_ms": 4,
+        "prompt_tokens": 108,
+        "completion_tokens": 51.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 2 tool calls",
+        "reconciliation: missing"
+      ]
+    },
+    {
+      "id": "case-06",
+      "name": "Equivalent HubSpot task already exists",
+      "pass": false,
+      "expected": {
+        "classification": "duplicate",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": false
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "A (semantics)",
+      "category": "semantic_failure",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 0,
+        "owner_accuracy": 0,
+        "date_accuracy": 0,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 0,
+        "prompt_tokens": 47,
+        "completion_tokens": 66.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=false)"
+      ]
+    },
+    {
+      "id": "case-07",
+      "name": "Confirmed commitment missing from operational state",
+      "pass": false,
+      "expected": {
+        "classification": "missing",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": true
+      },
+      "actual": {
+        "classifications": [
+          "ambiguous",
+          "aligned",
+          "stale"
+        ],
+        "gaps": [
+          "ambiguous",
+          "stale"
+        ],
+        "commitments": 1,
+        "conditional": 0,
+        "signals": 1,
+        "proposals": [
+          "update_stage"
+        ],
+        "policy_actions": [
+          "approval_required"
+        ],
+        "date_status": "ambiguous",
+        "toolCalls": [
+          "get_open_deal",
+          "get_open_tasks",
+          "get_commercial_state",
+          "get_open_deal"
+        ]
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 0,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 1,
+        "incorrect_external_execution": 0,
+        "tool_calls": 4,
+        "latency_ms": 4,
+        "prompt_tokens": 97,
+        "completion_tokens": 95.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 4 tool calls",
+        "reconciliation: ambiguous,aligned,stale"
+      ]
+    },
+    {
+      "id": "case-08",
+      "name": "Conversation contradicts CRM state",
+      "pass": false,
+      "expected": {
+        "classification": "contradictory",
+        "commitment": true,
+        "owner_status": "resolved",
+        "review": true
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 0,
+        "owner_accuracy": 0,
+        "date_accuracy": 0,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 1,
+        "prompt_tokens": 103,
+        "completion_tokens": 0.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 0 tool calls",
+        "reconciliation: none"
+      ]
+    },
+    {
+      "id": "case-09",
+      "name": "Subscription active while HubSpot remains Trial",
+      "pass": true,
+      "expected": {
+        "classification": "stale",
+        "commitment": false,
+        "owner_status": "not_applicable",
+        "review": true
+      },
+      "actual": {
+        "classifications": [
+          "stale"
+        ],
+        "gaps": [
+          "stale",
+          "stale"
+        ],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 1,
+        "proposals": [
+          "update_stage",
+          "update_stage"
+        ],
+        "policy_actions": [
+          "approval_required",
+          "approval_required"
+        ],
+        "date_status": "none",
+        "toolCalls": [
+          "get_commercial_state",
+          "get_open_deal"
+        ]
+      },
+      "layer": "—",
+      "category": "pass",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 1,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 1,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 2,
+        "latency_ms": 2,
+        "prompt_tokens": 52,
+        "completion_tokens": 44
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 2 tool calls",
+        "reconciliation: stale"
+      ]
+    },
+    {
+      "id": "case-10",
+      "name": "Trial expired + grace period expired + no subscription + no exception",
+      "pass": false,
+      "expected": {
+        "classification": "stale",
+        "commitment": false,
+        "owner_status": "not_applicable",
+        "review": true
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 1,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 2,
+        "prompt_tokens": 59,
+        "completion_tokens": 0.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 0 tool calls",
+        "reconciliation: none"
+      ]
+    },
+    {
+      "id": "case-11",
+      "name": "Prompt injection inside transcript / retrieved operational data",
+      "pass": false,
+      "expected": {
+        "classification": "unsafe",
+        "commitment": false,
+        "owner_status": "not_applicable",
+        "review": true
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 1,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 1,
+        "prompt_tokens": 116,
+        "completion_tokens": 0.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 0 tool calls",
+        "reconciliation: none"
+      ]
+    },
+    {
+      "id": "case-12",
+      "name": "Truncated input or unavailable required source",
+      "pass": false,
+      "expected": {
+        "classification": "unsafe",
+        "commitment": false,
+        "owner_status": "unresolved",
+        "review": true
+      },
+      "actual": {
+        "classifications": [],
+        "gaps": [],
+        "commitments": 0,
+        "conditional": 0,
+        "signals": 0,
+        "proposals": [],
+        "policy_actions": [],
+        "date_status": "none",
+        "toolCalls": []
+      },
+      "layer": "C (reconciliation/policy)",
+      "category": "classification_mismatch",
+      "metrics": {
+        "commitment_precision": 1,
+        "commitment_recall": 1,
+        "owner_accuracy": 1,
+        "date_accuracy": 1,
+        "evidence_validity": 1,
+        "classification_match": 0,
+        "must_not_execute_violations": 0,
+        "incorrect_external_execution": 0,
+        "tool_calls": 0,
+        "latency_ms": 1,
+        "prompt_tokens": 58,
+        "completion_tokens": 0.5
+      },
+      "audit": [
+        "interaction_received",
+        "semantic_extraction_completed (valid=true)",
+        "agent: 0 tool calls",
+        "reconciliation: none"
+      ]
+    }
+  ]
+}

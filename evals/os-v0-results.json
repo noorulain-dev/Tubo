@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "runner": "os-v0",
+    "generatedAt": "2026-09-08T21:16:43.308Z",
+    "reference_now": "2026-09-10T00:00:00Z",
+    "note": "Deterministic multi-event state-machine evaluation (state builder + risk scanner + read-only investigator + policy). No model prompt involved; expected outputs are never exposed."
+  },
+  "aggregate": {
+    "cases_total": 8,
+    "cases_passed": 8,
+    "cases_failed": 0,
+    "pass_rate": 1
+  },
+  "failures": [],
+  "cases": [
+    {
+      "id": "os-01",
+      "name": "Commitment fulfilled by later evidence",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": "fulfilled",
+        "question_status": null,
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false
+      },
+      "actual": {
+        "commitment_status": "fulfilled",
+        "question_status": null,
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false,
+        "snapshot_version": 3
+      }
+    },
+    {
+      "id": "os-02",
+      "name": "Commitment becomes overdue",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": "overdue",
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "overdue_internal_commitment"
+        ],
+        "severity": "critical",
+        "investigation_outcome": null,
+        "proposed_action": "create_task",
+        "review_requirement": true
+      },
+      "actual": {
+        "commitment_status": "overdue",
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "overdue_internal_commitment"
+        ],
+        "severity": "critical",
+        "investigation_outcome": null,
+        "proposed_action": "create_task",
+        "review_requirement": true,
+        "snapshot_version": 1
+      }
+    },
+    {
+      "id": "os-03",
+      "name": "Customer question later answered",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": null,
+        "question_status": "answered",
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false
+      },
+      "actual": {
+        "commitment_status": null,
+        "question_status": "answered",
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false,
+        "snapshot_version": 2
+      }
+    },
+    {
+      "id": "os-04",
+      "name": "Customer question remains unanswered",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": null,
+        "question_status": "open",
+        "blockers": [],
+        "findings": [
+          "unanswered_customer_question"
+        ],
+        "severity": "high",
+        "investigation_outcome": null,
+        "proposed_action": "create_draft",
+        "review_requirement": true
+      },
+      "actual": {
+        "commitment_status": null,
+        "question_status": "open",
+        "blockers": [],
+        "findings": [
+          "unanswered_customer_question",
+          "missing_next_step"
+        ],
+        "severity": "high",
+        "investigation_outcome": null,
+        "proposed_action": "create_draft",
+        "review_requirement": true,
+        "snapshot_version": 1
+      }
+    },
+    {
+      "id": "os-05",
+      "name": "Commercial activation creates CRM mismatch",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": null,
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "commercial_crm_mismatch"
+        ],
+        "severity": "high",
+        "investigation_outcome": null,
+        "proposed_action": "update_stage",
+        "review_requirement": true
+      },
+      "actual": {
+        "commitment_status": null,
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "stale_crm_state",
+          "commercial_crm_mismatch"
+        ],
+        "severity": "high",
+        "investigation_outcome": null,
+        "proposed_action": "update_stage",
+        "review_requirement": true,
+        "snapshot_version": 2
+      }
+    },
+    {
+      "id": "os-06",
+      "name": "New customer response resolves a blocker",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": null,
+        "question_status": null,
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false
+      },
+      "actual": {
+        "commitment_status": null,
+        "question_status": null,
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false,
+        "snapshot_version": 2
+      }
+    },
+    {
+      "id": "os-07",
+      "name": "Suspected gap rejected after investigation finds existing evidence",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": "open",
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "missing_operational_task"
+        ],
+        "severity": "medium",
+        "investigation_outcome": "rejected",
+        "proposed_action": null,
+        "review_requirement": false
+      },
+      "actual": {
+        "commitment_status": "open",
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "missing_operational_task",
+          "missing_next_step"
+        ],
+        "severity": "medium",
+        "investigation_outcome": "rejected",
+        "proposed_action": null,
+        "review_requirement": false,
+        "snapshot_version": 1
+      }
+    },
+    {
+      "id": "os-08",
+      "name": "Prompt injection inside retrieved operational data",
+      "pass": true,
+      "failedChecks": [],
+      "expected": {
+        "commitment_status": "open",
+        "question_status": null,
+        "blockers": [],
+        "findings": [],
+        "severity": null,
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false
+      },
+      "actual": {
+        "commitment_status": "open",
+        "question_status": null,
+        "blockers": [],
+        "findings": [
+          "missing_next_step"
+        ],
+        "severity": "medium",
+        "investigation_outcome": null,
+        "proposed_action": null,
+        "review_requirement": false,
+        "snapshot_version": 2
+      }
+    }
+  ]
+}

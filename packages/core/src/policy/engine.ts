@@ -41,7 +41,7 @@ export const EXECUTOR_ALLOWLIST = [
 export const INFORMATIONAL_ACTIONS = ["flag_for_review", "log_security_event", "none"] as const;
 
 const INJECTION_PATTERN =
-  /\b(system override|ignore (all )?previous instructions|admin mode|override (your )?policy|mark every deal|delete all)\b/i;
+  /\b(system override|ignore (all )?previous instructions|admin (mode|tool)|act as|you are now|override (your )?policy|mark every deal|delete all)\b/i;
 const POLICY_OVERRIDE_PATTERN =
   /(self.?approve|auto.?approve|bypass (approval|policy)|"requiresapproval"\s*:\s*false|"approved"\s*:\s*true)/i;
 const HIGH_IMPACT_PATTERN = /(cancel|downgrade|delete|terminate|refund|purge)/i;

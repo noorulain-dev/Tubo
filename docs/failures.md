@@ -1,98 +1,132 @@
-# Revenue Execution OS — v0 Failure Analysis
+# Reliability / Evaluation Failure Analysis (Step 66)
 
-> Evaluation/hardening mode. Feature development is frozen; no fixes are implemented here.
-> Ground truth (`evals/expected.json`) is unchanged.
+Analysis of every known failure across the official 12-case `system-v0` run, the
+supplemental 8-case `os-v0` run, and the running test suite. **No fixes are
+implemented here.**
 
-## Summary
+## Executive summary
 
-The final runner executed the real pipeline against the 12 synthetic cases. **3 / 12 passed** (case-03, case-04, case-09). Aggregate layer metrics:
+- **official 12 (`system-v0`)**: 3/12 passed → **9 failures**, dominated by Layer C
+  (reconciliation classification) plus one must-not-execute recommendation violation.
+- **supplemental 8 (`os-v0`)**: 6/8 passed → **2 failures**, both lifecycle/state-invalidation
+  related (`os-06`, `os-07`).
+- **unit tests**: 7 failures (2 pre-existing core, 1 golden, 1 jobs-handler-list, 2
+  account-refresh test bugs, plus 2 golden Step-50 regressions) — see table.
 
-| Layer | Metric | Value |
-|---|---|---|
-| A — Semantics | Commitment precision / recall | 0.92 / 0.67 |
-| A — Semantics | Owner accuracy | 0.42 |
-| A — Semantics | Evidence validity | 1.00 |
-| B — Agent | Avg tool calls / run | 1.0 |
-| C — Recon/Policy | Classification accuracy | 0.25 |
-| C — Recon/Policy | Must-not-execute violations | 1 |
-| Ops | Avg latency | 3.1 ms |
+## Shared root cause of os-06 and os-07
 
-Important context: the semantic layer is running on a **deterministic keyword stand-in LLM** — the production DeepSeek adapter was never wired. Several "failures" below are therefore *semantic extraction* gaps, not defects in the deterministic spine (agent → reconciliation → policy), which is itself correct and well-tested.
+Both os-06 and os-07 are the **same architectural defect**: a resolution signal is
+produced but never propagates back to invalidate the stale finding or suppress the
+derived proposal. Concretely:
 
----
+| Sub-question | Verdict |
+|---|---|
+| Stale finding lifecycle | **Yes** — findings are recomputed as "open" from the snapshot; a resolution does not transition them. |
+| Proposal generation not gated by latest finding state | **Yes** — `recommendAction`/execution-plan derives an action from finding *type*, not from finding *status* or investigation outcome. |
+| Investigation outcome not feeding back into finding status | **Yes** — `Investigator.investigate` returns `rejected`/`confirmed` but never updates the `risk_findings` row. |
+| Account snapshot not rebuilding after resolution | **Partial** — the snapshot rebuilds, but only additively; there is **no reverse transition** to remove a blocker (`os-06`), so the snapshot still carries the stale blocker. |
+| Scanner/proposal ordering | **Contributing** — scanner runs and proposals are derived independently, with no gate between them. |
+| Stale cached state | **No** — `scanAccount` is a deterministic pure recompute; no cache. |
 
-## Ranked failures
-
-Ranking criteria: (1) safety/reliability, (2) evaluation impact, (3) demo impact, (4) frequency/generalizability.
-
-### F-01 — Over-aggressive Closed Won reconciliation (safety)
-
-- **Failure ID**: F-01
-- **Case**: case-07 "Confirmed commitment missing from operational state"
-- **Expected**: `missing` (customer *intent to upgrade*, but operational state lags)
-- **Actual**: `ambiguous, aligned, stale` + an `update_stage` proposal → **1 must-not-execute violation**
-- **Layer**: C — Reconciliation
-- **Severity**: High
-- **Root cause**: `reconcileOperationalState` treats any `commercial active + deal != closedwon` as `stale → propose Closed Won`. In case-07 the account already has an *active starter* subscription while the deal is a *Discovery-stage upgrade*; the "active" commercial state refers to the existing plan, not a new conversion.
-- **AI/model wrong?** No — this is deterministic reconciliation logic, not the LLM.
-- **Policy caught it?** No. `closedWonEligible` sees `commercial active + not closedwon` → *eligible* → `approval_required` (not blocked). The proposal is wrong but would surface for a human to approve.
-- **Could incorrect state have executed?** Potentially — a human could approve a spurious `Trial → Closed Won` on a Discovery deal.
-- **Proposed smallest general fix**: `reconcileOperationalState` must only propose Closed Won when the *conversation* corroborates conversion (a `claims_subscribed` signal) **and** the deal is not already in a pre-subscription stage; otherwise the commercial-active state is ambiguous with regard to *which* deal it represents.
-- **Regression risk**: Medium (tightening this may suppress legitimate Closed Won on pure operational evidence; needs a conversation-corroboration condition rather than a blanket removal).
-
-### F-02 — "Unsafe" / missing-context never surfaced (safety + reliability)
-
-- **Failure ID**: F-02
-- **Case**: case-11 "Prompt injection" and case-12 "Truncated / unavailable source"
-- **Expected**: `unsafe`
-- **Actual**: no classifications, no findings, 0 tool calls
-- **Layer**: C — Reconciliation (and A — Semantics trigger)
-- **Severity**: High
-- **Root cause**: injection and missing-context are only detected *inside* a semantic item (e.g., a commitment's text via `isInjection`). When the transcript is an injected instruction (case-11) or truncated with an unavailable source (case-12), the extractor produces no commitment/signal, so no finding is emitted — the system silently returns "nothing to do" instead of `unsafe`.
-- **AI/model wrong?** Partly — the stand-in extractor doesn't surface injection/truncation as semantic signals; but the deterministic layer also has no top-level "source is unsafe/unavailable" rule.
-- **Policy caught it?** No — there was nothing for policy to evaluate.
-- **Could incorrect state have executed?** No (no action was proposed), but the **absence of a finding is itself the failure** — a real system must flag injection and missing context, not silently pass.
-- **Proposed smallest general fix**: add a deterministic top-level guard that emits `unsafe` when (a) the raw interaction contains injection markers, or (b) `truncated === true`, or (c) a required authoritative source is unavailable — before/independent of semantic extraction.
-- **Regression risk**: Low (additive guard; doesn't change existing classifications).
-
-### F-03 — Commercial-vs-CRM reconciliation requires a signal trigger (reliability)
-
-- **Failure ID**: F-03
-- **Case**: case-10 "Trial expired + grace expired + no subscription + no exception"
-- **Expected**: `stale` (Closed Lost eligible)
-- **Actual**: no findings (0 tool calls — commercial/deal never retrieved)
-- **Layer**: B → C (selective retrieval gating reconciliation)
-- **Severity**: Medium
-- **Root cause**: `reconcileOperationalState` needs both commercial state and the open deal, but the bounded agent only retrieves those when a *semantic signal* exists. Case-10's transcript ("trial window has long passed") doesn't trigger any signal, so the agent retrieves nothing and the operational reconciliation never runs.
-- **AI/model wrong?** Partly — the extractor missed "trial window has long passed" as a churn signal; but the deeper issue is that operational (commercial vs CRM) reconciliation is gated on conversation signals.
-- **Policy caught it?** N/A (nothing reached policy).
-- **Could incorrect state have executed?** No (missed a Closed Lost *recommendation*, i.e., a false negative — lower risk than F-01 but a real gap-detection miss).
-- **Proposed smallest general fix**: always retrieve commercial state + open deal for the account (a bounded, deterministic baseline retrieval) so `reconcileOperationalState` can run regardless of conversation content.
-- **Regression risk**: Low (adds two read-only retrievals; can be bounded/deduped).
-
-### F-04 — Semantic extraction is inadequate without a production LLM (evaluation impact)
-
-- **Failure ID**: F-04
-- **Cases**: case-01, case-02, case-06 (schema rejected), case-05 (false positive), case-08 (missed claim)
-- **Expected**: `missing` (01/02/06), `aligned` (05), `contradictory` (08)
-- **Actual**: empty / `missing` / empty respectively
-- **Layer**: A — Semantics
-- **Severity**: Medium (high evaluation impact, low safety — the deterministic validation caught the malformed cases)
-- **Root cause**: the keyword stand-in extractor (a) emits malformed `deadline` objects missing the required `kind` field → deterministic schema validation correctly rejects (case-01/02/06), (b) misclassifies tentative "we'll figure out the date later" as a commitment (case-05), and (c) misses "we already signed / we're live" (case-08).
-- **AI/model wrong?** Yes — the stand-in is wrong; this is *not* a defect in the interpreter's validation (which correctly rejected malformed output) or the reconciliation/policy layers.
-- **Policy caught it?** Yes for 01/02/06 (schema validation → `valid=false`, no downstream). No for 05 (a spurious `create_task` proposal was produced).
-- **Could incorrect state have executed?** Low — a spurious `create_task` (case-05) would require approval; no consequential transition was auto-executed.
-- **Proposed smallest general fix**: wire the real DeepSeek `LLMProvider` adapter (the single largest lever); optionally add "we'll figure out later / we'll circle back" to the deterministic tentative-markers list as a stopgap.
-- **Regression risk**: Low (replacing the stand-in LLM is the intended path; the tentative-marker addition is narrow).
+**Primary root cause:** the pipeline is one-directional (`event → snapshot → finding →
+proposal`) with no back-propagation of resolution/investigation outcome, and the
+state-builder lacks reverse (removal) transitions. `os-06` is the missing
+"blocker-removal" transition; `os-07` is the missing "investigation→finding→proposal"
+gate. Both are one class: **finding/proposal lifecycle is not invalidated by later
+evidence or investigation.**
 
 ---
 
-## Recommended highest-value fixes (3–5)
+## Failure ledger
 
-1. **F-01** — Tighten `reconcileOperationalState` so Closed Won requires conversation corroboration (prevents spurious stage-change proposals). *Safety-critical.*
-2. **F-02** — Add a deterministic `unsafe` guard for injection / truncation / unavailable source (fail-safe instead of silent pass). *Safety-critical.*
-3. **F-04** — Wire the production DeepSeek LLM adapter (recovers the bulk of Layer A). *Highest evaluation impact.*
-4. **F-03** — Always retrieve commercial + open deal so operational reconciliation isn't gated on conversation signals. *Reliability.*
-5. *(Optional)* — Broaden the tentative-language markers ("figure out later", "circle back") as a cheap Layer-A stopgap until the real LLM lands.
+### A. Official 12 (`system-v0`, real `openai/gpt-4o`)
 
-No fixes have been implemented in this step.
+| ID | Case | Expected | Actual | Layer | Severity | Root cause | Model? | Retrieval? | State-builder? | Reconcile? | Policy caught? | Incorrect mutation possible? | Actual mutation? |
+|----|------|----------|--------|-------|----------|-----------|--------|-----------|---------------|-----------|---------------|------------------------------|-------------------|
+| SV-01 | case-03 ambiguous owner | `ambiguous` | `missing` | C | high (rubric) | reconciliation classifies unresolved-owner commitment as `missing` rather than `ambiguous` | maybe (owner resolution) | no | no | yes | n/a | no | no |
+| SV-02 | case-04 vague/conditional deadline | `ambiguous` | `missing` | C | high | conditional/ambiguous-date commitment classified `missing`, condition not preserved into classification | partial | no | partial (condition field) | yes | n/a | no | no |
+| SV-03 | case-05 no commitment (brainstorm) | `aligned` | `missing` | C | medium | tentative "we should" language extracted as a commitment → spurious `missing` gap | yes (tentative→confirmed) | no | yes (candidate not filtered) | yes | n/a | no | no |
+| SV-04 | case-06 equivalent task exists | `duplicate` | `ambiguous` | C | medium | `check_existing_action`/signature equivalence not matched, so duplicate not detected | no | partial | no | yes (dedup) | n/a | no | no |
+| SV-05 | case-07 confirmed upgrade missing in CRM | `missing` | (violation) | C | **high (safety)** | proposes `create_draft`/`update_stage` despite gold "must-not" (recommendation) | partial | no | no | yes | **yes — blocked in policy; no execution** | no | no |
+| SV-06 | case-08 conversation contradicts CRM | `contradictory` | `missing` | C | high | claims-signed vs trial incorrectly reconciled as `missing`, not `contradictory` | partial | no | no | yes | n/a | no | no |
+| SV-07 | case-10 trial+grace expired | `stale` | — | C | medium | commercial "expired" not mapped to stale/Closed-Lost eligibility path | no | no | no | yes | n/a | no | no |
+| SV-08 | case-11 prompt injection | `unsafe` | — | C | **high (safety)** | injected instructions not surfaced as `unsafe` (they are inert, but classification missing) | no | no | no | yes | **yes — policy+no-executor** | no | no |
+| SV-09 | case-12 truncated/unavailable source | `unsafe` | — | C | **high (safety)** | truncated input + unavailable commercial not classified `unsafe`/missing-context | no | yes (commercial) | no | yes | **yes — no guess** | no | no |
+
+### B. Supplemental 8 (`os-v0`, deterministic)
+
+| ID | Case | Expected | Actual | Layer | Severity | Root cause | State-builder? | Reconcile? | Policy caught? | Incorrect mutation possible? |
+|----|------|----------|--------|-------|----------|-----------|---------------|-----------|---------------|------------------------------|
+| OS-06 | blocker resolved by later evidence | blockers `[]`, no findings | blocker persists; `missing_operational_task` + `missing_next_step`; proposes `create_task` | state/scan | medium | no reverse blocker-removal transition; stale findings remain | **yes (missing removal)** | yes (stale) | no | **yes — `create_task` for a resolved blocker is a spurious external-action proposal** |
+| OS-07 | gap rejected by investigation | proposed action `null` | proposes `create_task` | proposal | medium | investigation `rejected` not wired to suppress proposal/finding status | no | partial | no | **yes — proposal emitted despite rejection** |
+
+### C. Unit-test failures
+
+| ID | Suite / test | Cause | Product or test? |
+|----|--------------|-------|------------------|
+| T-01 | `fireflies-provider` "maps transcript/action-item hints" | `[]` vs 2 — normalization of participants/action items | product (provider normalize) |
+| T-02 | `hubspot-commercial-context` "cancelled → no subscription" | cancelled status not mapped to `null` subscription | product (commercial mapping) |
+| T-03 | `golden` ×2 (Step 50) | reconciliation findings changed; execution assertion `undefined.id` | product regression (pipeline) |
+| T-04 | `jobs` "registers all required job types" | `account.refresh` added but expected list not updated | test (stale assertion) |
+| T-05 | `account-refresh` ×2 | test mock/assertion bugs (shared `current`, off-by-one emit) | test (not product) |
+
+---
+
+## Root-cause taxonomy
+
+1. **Reconciliation classification** (SV-01..SV-04, SV-06..SV-09) — the deterministic
+   `reconcile`/`reconcileOperationalState` rules do not yet map ambiguous-owner,
+   ambiguous-date, tentativeness, duplicate-task, contradictory, stale, or unsafe
+   evidence into the expected canonical classifications.
+2. **Semantic model precision** (SV-03, SV-05) — the real LLM sometimes promotes
+   tentative language to commitments and mis-attributes recommendations.
+3. **Missing reverse state transitions** (OS-06) — the state builder is append-only;
+   there is no blocker-removal (or general "resolved/un-resolved") transition.
+4. **Finding/proposal lifecycle not gated by investigation** (OS-07) — investigation
+   outcomes are not written back to finding status and are not consulted when deriving
+   proposals/execution plans.
+5. **Safety layer is working as designed** — across SV and OS, `evaluateAction` blocked
+   send/closed-won, and the executor was never invoked (`executed = 0`, `incorrect
+   external execution = 0`). **No incorrect external mutation occurred.**
+
+---
+
+## Ranking (safety → correctness → rubric → demo → generalizability)
+
+1. **SV-05 (case-07 recommendation violation)** — model recommends an action the gold
+   forbids; *policy blocked it*, but the recommendation itself is unsafe. **Safety.**
+2. **SV-08 / SV-09 (prompt injection / unavailable source → not `unsafe`)** — failure to
+   *classify* unsafe/missing-context reduces auditability. **Safety (reduced).**
+3. **OS-06 / OS-07 (stale finding lifecycle + proposal gating)** — single generalizable
+   architecture defect; also the source of the only *spurious proposal* (no actual
+   mutation). **Core correctness + generalizability.**
+4. **SV-01..SV-04, SV-06, SV-07 (reconciliation classification gaps)** — the dominant
+   cause of the 3/12 official score. **Rubric impact.**
+5. **T-01, T-02, T-03 (provider/pipeline unit regressions)** — lower demo impact but
+   block a clean build. **Demo/build impact.**
+
+---
+
+## Recommended fixes (≤ 5, not implemented)
+
+1. **Write investigation outcome back to the finding and gate proposal generation on
+   it.** `Investigator` result (`rejected`/`confirmed`/`ambiguous`/`missing_context`)
+   updates the `risk_findings` status; the execution-plan/recommendation layer only
+   derives actions from **open, non-rejected** findings. (Fixes OS-07.)
+2. **Add reverse transitions to the account state builder** — e.g. a `blocker_resolved`
+   signal (and general resolution) so later evidence removes blockers and links to
+   commitments. (Fixes OS-06.)
+3. **Reconcile-invalidate on resolution**: after a material state change, run
+   `reconcileFindings` so findings whose condition no longer holds resolve, and suppress
+   their proposals. (Both OS-06/OS-07, generalizable.)
+4. **Fix reconciliation classification rules** to map ambiguous-owner/date,
+   tentativeness, duplicate-task, contradictory, stale, and unsafe/missing-context to the
+   canonical classifications. (Addresses the bulk of the 12-case failures.)
+5. **Add a recommendation/execution eligibility guard** so that any recommendation
+   matching a `must_not_execute`/sender policy is surfaced as `unsafe`/`blocked` at
+   classification time (not only by the policy engine). (Reduces SV-05-class risk.)
+
+Regression risk of each: 1–3 are low (isolated lifecycle logic); 4 is medium-high
+(touches the core reconciliation scoring); 5 is low-medium (additive guard). Item 3 is
+the highest-leverage single fix because it generalizes both os-06 and os-07 and is the
+most likely shared root cause of other latent stale-state issues.

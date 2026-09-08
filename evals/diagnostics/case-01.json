@@ -1,0 +1,89 @@
+{
+  "id": "case-01",
+  "name": "Explicit internal commitment",
+  "input": {
+    "interaction_text": "Sarah Chen: Dan, quick update on Northwind Logistics. Their security review came back clean. I'll send the final proposal with revised pricing by Friday.\nDan Reeves: Great. Do you need legal to review the MSA first?\nSarah Chen: No, I already have sign-off. Just need to get it out the door.",
+    "account_id": "co-001"
+  },
+  "expected": {
+    "has_confirmed_commitment": true,
+    "owner_status": "resolved",
+    "date_status": "resolved",
+    "required_retrieval": [
+      "hubspot",
+      "tasks"
+    ],
+    "reconciliation_classification": "missing"
+  },
+  "actual_semantic": {
+    "commitment_count": 1,
+    "has_resolved_owner": true,
+    "has_resolved_date": false,
+    "commitments": [
+      {
+        "action": "Send the final proposal with revised pricing.",
+        "owner": "Sarah Chen",
+        "resolution": "resolved",
+        "deadline_value": null
+      }
+    ],
+    "signal_kinds": [
+      "security_review",
+      "proposal",
+      "legal_review"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_deal",
+        "reason": "commitment_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "check_existing_action",
+        "reason": "execution_gap_check",
+        "ok": true
+      },
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": false
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot",
+      "tasks"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "missing",
+      "ambiguous"
+    ]
+  },
+  "first_divergence": "SEMANTIC_MODEL"
+}

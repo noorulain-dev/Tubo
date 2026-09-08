@@ -1,0 +1,90 @@
+{
+  "id": "case-07",
+  "name": "Confirmed commitment missing from operational state",
+  "input": {
+    "interaction_text": "Rosa Delgado: We've made the decision internally. We're moving forward with the upgrade to Pro.\nJordan Blake: That's great news. What are the next steps on your side?\nRosa Delgado: We'll finalize the order form next week. I just need the updated invoice number from you.",
+    "account_id": "co-007"
+  },
+  "expected": {
+    "has_confirmed_commitment": true,
+    "owner_status": "resolved",
+    "date_status": "ambiguous",
+    "required_retrieval": [
+      "hubspot",
+      "tasks",
+      "commercial"
+    ],
+    "reconciliation_classification": "missing"
+  },
+  "actual_semantic": {
+    "commitment_count": 1,
+    "has_resolved_owner": true,
+    "has_resolved_date": false,
+    "commitments": [
+      {
+        "action": "Finalize the order form.",
+        "owner": "Rosa Delgado",
+        "resolution": "resolved",
+        "deadline_value": null
+      }
+    ],
+    "signal_kinds": [
+      "upgrade_intent"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_deal",
+        "reason": "commitment_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "check_existing_action",
+        "reason": "execution_gap_check",
+        "ok": true
+      },
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot",
+      "tasks",
+      "commercial"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "missing",
+      "aligned",
+      "stale"
+    ]
+  },
+  "first_divergence": "RECONCILIATION_LOGIC"
+}

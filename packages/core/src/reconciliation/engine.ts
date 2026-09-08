@@ -39,7 +39,7 @@ export interface ReconciliationInput {
 
 const CONSEQUENTIAL_PATTERN = /\b(cancel|downgrade|delete|terminate|refund)\b/i;
 const INJECTION_PATTERN =
-  /\b(ignore (all )?previous instructions|system override|admin mode|override (your )?policy|delete all tasks|mark every deal)\b/i;
+  /\b(ignore (all )?previous instructions|system override|admin (mode|tool)|act as|you are now|override (your )?policy|delete all tasks|mark every deal)\b/i;
 
 export function isConsequential(text: string): boolean {
   return CONSEQUENTIAL_PATTERN.test(text);
@@ -53,9 +53,37 @@ function normalizeTitle(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const EQUIVALENCE_FILLER = new Set([
+  "the", "a", "an", "to", "for", "and", "of", "with", "on", "by", "please",
+  "final", "revised", "updated", "draft", "i", "we", "our", "this", "that",
+]);
+
+/** Significant tokens of a task/commitment title: stopwords and quality qualifiers removed. */
+function significantTokens(value: string): string[] {
+  return normalizeTitle(value)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !EQUIVALENCE_FILLER.has(w));
+}
+
+/**
+ * Conservative deterministic task equivalence: two items describe the same
+ * operational obligation when one token set is a subset of the other (ignoring
+ * filler/qualifier words). This is intentionally conservative — synonym-level
+ * equivalence ("docs" vs "documentation") is NOT auto-matched, so it can never
+ * wrongly suppress task creation.
+ */
 function findEquivalentTask(action: string, tasks: TaskRecord[]): TaskRecord | null {
-  const target = normalizeTitle(action);
-  return tasks.find((t) => normalizeTitle(t.title) === target) ?? null;
+  const a = significantTokens(action);
+  if (a.length === 0) return null;
+  for (const t of tasks) {
+    const b = significantTokens(t.title);
+    if (b.length === 0) continue;
+    const shorter = a.length <= b.length ? a : b;
+    const longer = a.length <= b.length ? b : a;
+    if (shorter.every((w) => longer.includes(w))) return t;
+  }
+  return null;
 }
 
 const CONVERSATION_AUTHORITY: SourceAuthority = { source: "conversation", authority: "evidence" };
@@ -77,6 +105,39 @@ interface Base {
 export function reconcile(input: ReconciliationInput): ReconciliationFinding[] {
   const findings: ReconciliationFinding[] = [];
 
+  if (input.state.truncated) {
+    // PART 5 / fail-closed: a truncated source cannot be safely reconciled.
+    findings.push({
+      classification: "unsafe",
+      claimRef: "semantic:truncated",
+      semanticItem: { truncated: true },
+      currentState: {},
+      relevantSources: ["conversation"],
+      authoritativeSource: CONVERSATION_AUTHORITY,
+      evidence: [],
+      rationaleCode: "missing_context",
+      risk: "high",
+      reason: "interaction source is truncated; fail closed rather than guess",
+    });
+  }
+
+  if (input.state.injected) {
+    // PART 5 / security: injection is treated as data, never as instruction. The
+    // whole interaction is flagged unsafe and nothing is proposed.
+    findings.push({
+      classification: "unsafe",
+      claimRef: "semantic:injection",
+      semanticItem: { injected: true },
+      currentState: {},
+      relevantSources: ["conversation"],
+      authoritativeSource: CONVERSATION_AUTHORITY,
+      evidence: [],
+      rationaleCode: "injection_detected",
+      risk: "critical",
+      reason: "prompt injection detected; content treated as data, no action proposed",
+    });
+  }
+
   input.state.confirmedCommitments.forEach((c, i) => {
     findings.push(reconcileCommitment(`confirmedCommitment:${i}`, c, input.context));
   });
@@ -88,6 +149,28 @@ export function reconcile(input: ReconciliationInput): ReconciliationFinding[] {
   input.state.commercialSignals.forEach((s, i) => {
     findings.push(reconcileCommercialSignal(`commercialSignal:${i}`, s, input.context));
   });
+
+  // PART 1 / aligned: when there is genuinely nothing actionable, surface a single
+  // "aligned" finding so "no action" is an explicit, auditable outcome.
+  const hasContent =
+    input.state.confirmedCommitments.length +
+      input.state.taskCandidates.length +
+      input.state.commercialSignals.length >
+    0;
+  if (!input.state.truncated && !input.state.injected && !hasContent) {
+    findings.push({
+      classification: "aligned",
+      claimRef: "semantic:none",
+      semanticItem: {},
+      currentState: {},
+      relevantSources: ["conversation"],
+      authoritativeSource: CONVERSATION_AUTHORITY,
+      evidence: [],
+      rationaleCode: "state_matches",
+      risk: "low",
+      reason: "no actionable commitments, tasks, or commercial signals; conversation is consistent",
+    });
+  }
 
   return findings;
 }
@@ -185,7 +268,9 @@ function reconcileCommercialSignal(claimRef: string, s: CommercialSignal, ctx: O
   const relevantSources: SourceType[] = ["conversation", "commercial", "hubspot"];
 
   if (!ctx.commercialState) {
-    return { ...base, classification: "ambiguous", relevantSources, authoritativeSource: COMMERCIAL_AUTHORITY, rationaleCode: "missing_context", risk: "high", reason: "commercial state unavailable; cannot determine subscription reality" };
+    // Required authoritative source unavailable -> cannot determine (ambiguous).
+    // Truncation is handled separately as "unsafe" (fail closed) in reconcile().
+    return { ...base, classification: "ambiguous", relevantSources, authoritativeSource: COMMERCIAL_AUTHORITY, rationaleCode: "missing_context", risk: "medium", reason: "commercial state unavailable; cannot determine subscription reality" };
   }
 
   const commercialActive = ctx.commercialState.subscription?.status === "active";
@@ -275,7 +360,7 @@ export function reconcileOperationalState(ctx: OperationalContext): Reconciliati
   const hasException = commercial.commercialException?.approved === true;
   const sources: SourceType[] = ["commercial", "hubspot"];
 
-  if (subActive && stage !== "closedwon") {
+  if (subActive && trialEnded && stage !== "closedwon") {
     findings.push({
       classification: "stale",
       claimRef: "operational:subscription_vs_stage",

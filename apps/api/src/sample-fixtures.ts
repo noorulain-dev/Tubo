@@ -146,6 +146,13 @@ export function createFixtureLLM(): LLMProvider {
           evidence: [{ source: "conversation", start: 0, end: 0, text: "proposal" }],
           resolution: "resolved",
         });
+      } else if (/send.*(security )?(documentation|docs|questionnaire)/.test(lower)) {
+        commitments.push({
+          action: "send security documentation",
+          owner: "Sarah Chen",
+          evidence: [{ source: "conversation", start: 0, end: 0, text: "documentation" }],
+          resolution: "resolved",
+        });
       }
       if (/\bteam\b/.test(lower)) {
         commitments.push({
@@ -155,7 +162,7 @@ export function createFixtureLLM(): LLMProvider {
           resolution: "ambiguous",
         });
       }
-      if (/(has|have) subscribed|is now paying|are now paying/.test(lower)) {
+      if (/(has|have) subscribed|is now paying|are now paying|decided to subscribe/.test(lower)) {
         signals.push({
           kind: "claims_subscribed",
           text: "claims subscribed",

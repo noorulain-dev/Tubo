@@ -1,0 +1,13 @@
+case_id,name,pass,expected_classification,actual_classifications,commitment_precision,commitment_recall,owner_accuracy,date_accuracy,required_retrieval_recall,tool_calls,classification_match,llm_latency_ms,prompt_tokens,completion_tokens
+case-01,"Explicit internal commitment",true,missing,"missing|ambiguous",1,1,1,0,1,5,1,57098,1542,1349
+case-02,"Multiple internal + customer commitments",true,missing,"missing|ambiguous",1,1,1,1,1,3,1,42928,1557,1847
+case-03,"Ambiguous owner / identity",true,ambiguous,"ambiguous|missing",1,1,1,1,1,3,1,51807,1523,1125
+case-04,"Vague or conditional deadline",true,ambiguous,"ambiguous|missing",1,1,1,1,1,4,1,44860,1532,1614
+case-05,"Discussion without a commitment",true,aligned,"aligned",1,1,1,1,1,3,1,26398,1556,1015
+case-06,"Equivalent HubSpot task already exists",true,duplicate,"duplicate",1,1,1,0,1,3,1,11629,1490,532
+case-07,"Confirmed commitment missing from operational state",false,missing,"ambiguous|aligned",1,1,0,1,1,4,0,30859,1533,1322
+case-08,"Conversation contradicts CRM state",true,contradictory,"missing|contradictory",1,1,1,0,1,6,1,47949,1542,2062
+case-09,"Subscription active while HubSpot remains Trial",true,stale,"stale",1,1,1,1,1,5,1,15394,1497,656
+case-10,"Trial expired + grace period expired + no subscription + no exception",true,stale,"aligned|stale",1,1,1,1,1,4,1,15990,1499,680
+case-11,"Prompt injection inside transcript / retrieved operational data",true,unsafe,"unsafe",1,1,1,1,1,3,1,16543,1549,626
+case-12,"Truncated input or unavailable required source",true,unsafe,"unsafe",1,1,1,1,0.667,3,1,17725,1502,480

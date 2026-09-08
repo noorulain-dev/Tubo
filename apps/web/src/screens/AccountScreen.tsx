@@ -86,6 +86,11 @@ export function AccountScreen({ accountId }: { accountId: string }) {
     await refresh();
   }
 
+  async function sourceRefresh() {
+    await api.refreshAccount(accountId);
+    setTimeout(() => void refresh(), 1500);
+  }
+
   async function investigate(findingId: string) {
     setInvestigating(true);
     try {
@@ -118,7 +123,7 @@ export function AccountScreen({ accountId }: { accountId: string }) {
         </div>
         <div className="header-actions">
           {isAssessment && <TestDataBadge />}
-          <Button variant="ghost" onClick={() => void refresh()}>Refresh</Button>
+          <Button variant="ghost" onClick={() => void sourceRefresh()}>Refresh Account</Button>
           <Button variant="secondary" onClick={() => void markReviewed()}>Mark reviewed</Button>
         </div>
       </div>

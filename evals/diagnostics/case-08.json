@@ -1,0 +1,89 @@
+{
+  "id": "case-08",
+  "name": "Conversation contradicts CRM state",
+  "input": {
+    "interaction_text": "Viktor Hale: Just to confirm, we already signed the enterprise agreement last week. Our finance team wired the first payment on Friday.\nNadia Soliman: Let me double-check our records and get back to you.\nViktor Hale: We're live on our side. Please update the paperwork so we can start onboarding.",
+    "account_id": "co-008"
+  },
+  "expected": {
+    "has_confirmed_commitment": true,
+    "owner_status": "resolved",
+    "date_status": "resolved",
+    "required_retrieval": [
+      "hubspot",
+      "commercial",
+      "gmail"
+    ],
+    "reconciliation_classification": "contradictory"
+  },
+  "actual_semantic": {
+    "commitment_count": 1,
+    "has_resolved_owner": true,
+    "has_resolved_date": false,
+    "commitments": [
+      {
+        "action": "Double-check the records and get back to Viktor Hale",
+        "owner": "Nadia Soliman",
+        "resolution": "resolved",
+        "deadline_value": null
+      }
+    ],
+    "signal_kinds": [
+      "contract_execution",
+      "payment_sent",
+      "go_live_status",
+      "onboarding_request"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_deal",
+        "reason": "commitment_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "check_existing_action",
+        "reason": "execution_gap_check",
+        "ok": true
+      },
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot",
+      "tasks",
+      "commercial"
+    ],
+    "missing_required": [
+      "gmail"
+    ]
+  },
+  "reconciliation": {
+    "classifications": [
+      "missing",
+      "aligned"
+    ]
+  },
+  "first_divergence": "SEMANTIC_MODEL"
+}

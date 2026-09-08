@@ -587,6 +587,10 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
         if (p.commitmentUpdates) applyCommitmentUpdates(next, p.commitmentUpdates as CommitmentUpdate[], event);
         if (p.questionUpdates) applyQuestionUpdates(next, p.questionUpdates as QuestionUpdate[], event);
         if (p.risks) next.risks = union(next.risks, p.risks as string[]);
+        if (Array.isArray(p.resolvedBlockers)) {
+          const resolved = new Set(p.resolvedBlockers as string[]);
+          next.blockers = next.blockers.filter((b) => !resolved.has(b));
+        }
       }
       break;
   }

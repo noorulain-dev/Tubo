@@ -111,5 +111,9 @@ export const SemanticStateSchema = z.object({
   temporalExpressions: z.array(TemporalExpressionSchema).default([]),
   blockers: z.array(z.string()).default([]),
   evidence: z.array(EvidenceSpanSchema).default([]),
+  /** Set true when the interaction source was truncated; the system fails closed. */
+  truncated: z.boolean().optional(),
+  /** Set true when the interaction text contains prompt-injection content. */
+  injected: z.boolean().optional(),
 });
 export type SemanticState = z.infer<typeof SemanticStateSchema>;

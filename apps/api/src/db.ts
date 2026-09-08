@@ -235,6 +235,14 @@ export async function ensureSchema(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS idx_execution_plans_user ON execution_plans(user_id, account_id);
 
+    CREATE TABLE IF NOT EXISTS account_refresh_state (
+      user_id    text NOT NULL,
+      account_id text NOT NULL,
+      state      jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, account_id)
+    );
+
     CREATE TABLE IF NOT EXISTS review_state (
       user_id     text NOT NULL,
       account_id  text NOT NULL,
@@ -242,5 +250,43 @@ export async function ensureSchema(): Promise<void> {
       snapshot    jsonb NOT NULL DEFAULT '{}'::jsonb,
       PRIMARY KEY (user_id, account_id)
     );
+
+    -- Email verification (Step 71). Column is nullable; NULL = unverified.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz;
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS verification_tokens (
+      token_hash text PRIMARY KEY,
+      user_id    text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at timestamptz NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_verification_tokens_user ON verification_tokens(user_id);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token_hash text PRIMARY KEY,
+      user_id    text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at timestamptz NOT NULL,
+      used_at    timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
   `);
+
+  // One-time email-verification backfill: pre-migration users are treated as
+  // already verified (they must never be suddenly locked out). Guarded by a
+  // migration marker so it runs exactly once.
+  try {
+    const applied = await p.query("SELECT 1 FROM schema_migrations WHERE version = '0003_email_verification'");
+    if (applied.rowCount === 0) {
+      await p.query("UPDATE users SET email_verified_at = now() WHERE email_verified_at IS NULL");
+      await p.query("INSERT INTO schema_migrations (version) VALUES ('0003_email_verification') ON CONFLICT (version) DO NOTHING");
+    }
+  } catch {
+    // Non-fatal: a fresh DB (no users yet) or a race on the marker is safe to ignore.
+  }
 }

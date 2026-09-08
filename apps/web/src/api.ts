@@ -214,6 +214,9 @@ export const api = {
   listFindings(accountId: string): Promise<{ findings: Finding[] }> {
     return request<{ findings: Finding[] }>(`/accounts/${encodeURIComponent(accountId)}/findings`);
   },
+  refreshAccount(accountId: string): Promise<{ enqueued: boolean; jobId: string }> {
+    return request<{ enqueued: boolean; jobId: string }>(`/accounts/${encodeURIComponent(accountId)}/refresh`, { method: "POST" });
+  },
   investigateFinding(findingId: string): Promise<InvestigationResult> {
     return request<InvestigationResult>(`/findings/${findingId}/investigate`, { method: "POST" });
   },

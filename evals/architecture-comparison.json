@@ -1,0 +1,540 @@
+{
+  "meta": {
+    "runner": "architecture-comparison",
+    "generatedAt": "2026-09-08T18:57:48.786Z",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "note": "Same real SemanticInterpreter for both arms; only retrieval differs."
+  },
+  "aggregate": {
+    "bounded": {
+      "correct": 4,
+      "gap_correct": 4,
+      "required_retrieval_recall": 0.792,
+      "unnecessary_tool_calls": 1,
+      "avg_tool_calls": 2.917,
+      "total_tool_calls": 35,
+      "missing_context_cases": 0
+    },
+    "retrieve_all": {
+      "correct": 5,
+      "gap_correct": 5,
+      "required_retrieval_recall": 0.972,
+      "unnecessary_tool_calls": 10,
+      "avg_tool_calls": 8,
+      "total_tool_calls": 96,
+      "missing_context_cases": 8
+    }
+  },
+  "operational": {
+    "total_llm_latency_ms": 81995,
+    "avg_llm_latency_ms": 6832.917,
+    "total_prompt_tokens": 12058,
+    "total_completion_tokens": 5358
+  },
+  "cases": [
+    {
+      "id": "case-01",
+      "name": "Explicit internal commitment",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 9772,
+      "prompt_tokens": 1020,
+      "completion_tokens": 452,
+      "bounded": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 3,
+        "missing_context": false,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks"
+        ]
+      },
+      "retrieve_all": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-02",
+      "name": "Multiple internal + customer commitments",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 11704,
+      "prompt_tokens": 1035,
+      "completion_tokens": 793,
+      "bounded": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 4,
+        "missing_context": false,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks"
+        ]
+      },
+      "retrieve_all": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-03",
+      "name": "Ambiguous owner / identity",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 4115,
+      "prompt_tokens": 1001,
+      "completion_tokens": 275,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.5,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 2,
+        "missing_context": false,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "tasks"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-04",
+      "name": "Vague or conditional deadline",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 8688,
+      "prompt_tokens": 1010,
+      "completion_tokens": 583,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 3,
+        "missing_context": false,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "tasks",
+          "hubspot"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-05",
+      "name": "Discussion without a commitment",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 13283,
+      "prompt_tokens": 1034,
+      "completion_tokens": 1001,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 3,
+        "missing_context": false,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "tasks",
+          "hubspot"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "missing"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-06",
+      "name": "Equivalent HubSpot task already exists",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 3658,
+      "prompt_tokens": 968,
+      "completion_tokens": 276,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 3,
+        "missing_context": false,
+        "classifications": [
+          "ambiguous"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [
+          "ambiguous"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-07",
+      "name": "Confirmed commitment missing from operational state",
+      "required": [
+        "hubspot",
+        "tasks",
+        "commercial"
+      ],
+      "semantic_llm_latency_ms": 8124,
+      "prompt_tokens": 1011,
+      "completion_tokens": 674,
+      "bounded": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 6,
+        "missing_context": false,
+        "classifications": [
+          "missing",
+          "aligned",
+          "stale"
+        ],
+        "sources": [
+          "tasks",
+          "hubspot",
+          "commercial"
+        ]
+      },
+      "retrieve_all": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 8,
+        "missing_context": false,
+        "classifications": [
+          "missing",
+          "aligned",
+          "stale"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-08",
+      "name": "Conversation contradicts CRM state",
+      "required": [
+        "hubspot",
+        "commercial",
+        "gmail"
+      ],
+      "semantic_llm_latency_ms": 7972,
+      "prompt_tokens": 1020,
+      "completion_tokens": 449,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.6666666666666666,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 5,
+        "missing_context": false,
+        "classifications": [
+          "missing",
+          "aligned"
+        ],
+        "sources": [
+          "tasks",
+          "hubspot",
+          "commercial"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.6666666666666666,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": false,
+        "classifications": [
+          "missing",
+          "aligned"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-09",
+      "name": "Subscription active while HubSpot remains Trial",
+      "required": [
+        "hubspot",
+        "commercial"
+      ],
+      "semantic_llm_latency_ms": 3952,
+      "prompt_tokens": 975,
+      "completion_tokens": 271,
+      "bounded": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 3,
+        "missing_context": false,
+        "classifications": [
+          "aligned",
+          "stale"
+        ],
+        "sources": [
+          "hubspot",
+          "commercial"
+        ]
+      },
+      "retrieve_all": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": false,
+        "classifications": [
+          "aligned",
+          "stale"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-10",
+      "name": "Trial expired + grace period expired + no subscription + no exception",
+      "required": [
+        "hubspot",
+        "commercial"
+      ],
+      "semantic_llm_latency_ms": 3563,
+      "prompt_tokens": 977,
+      "completion_tokens": 205,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.5,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 1,
+        "missing_context": false,
+        "classifications": [],
+        "sources": [
+          "hubspot"
+        ]
+      },
+      "retrieve_all": {
+        "correct": true,
+        "gap_correct": true,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": false,
+        "classifications": [
+          "stale"
+        ],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-11",
+      "name": "Prompt injection inside transcript / retrieved operational data",
+      "required": [
+        "hubspot",
+        "tasks"
+      ],
+      "semantic_llm_latency_ms": 3900,
+      "prompt_tokens": 1027,
+      "completion_tokens": 219,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.5,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 1,
+        "missing_context": false,
+        "classifications": [],
+        "sources": [
+          "hubspot"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 1,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    },
+    {
+      "id": "case-12",
+      "name": "Truncated input or unavailable required source",
+      "required": [
+        "hubspot",
+        "tasks",
+        "commercial"
+      ],
+      "semantic_llm_latency_ms": 3264,
+      "prompt_tokens": 980,
+      "completion_tokens": 160,
+      "bounded": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 0.3333333333333333,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 1,
+        "missing_context": false,
+        "classifications": [],
+        "sources": [
+          "hubspot"
+        ]
+      },
+      "retrieve_all": {
+        "correct": false,
+        "gap_correct": false,
+        "required_retrieval_recall": 1,
+        "unnecessary_tool_calls": 0,
+        "tool_calls": 8,
+        "missing_context": true,
+        "classifications": [],
+        "sources": [
+          "hubspot",
+          "tasks",
+          "commercial"
+        ]
+      }
+    }
+  ]
+}

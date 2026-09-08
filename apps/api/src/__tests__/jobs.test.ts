@@ -34,7 +34,7 @@ describe("job retry policy (pure)", () => {
 describe("job handler registry", () => {
   it("registers all required job types", () => {
     expect(Object.keys(HANDLERS).sort()).toEqual(
-      ["calendar.sync", "fireflies.fetch", "fireflies.sync", "interaction.process"].sort(),
+      ["account.refresh", "calendar.sync", "fireflies.fetch", "fireflies.sync", "interaction.process"].sort(),
     );
   });
 });

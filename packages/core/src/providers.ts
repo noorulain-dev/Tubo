@@ -173,6 +173,8 @@ export interface LLMRequest {
   temperature?: number;
   responseFormat?: "json_object" | "text";
   maxTokens?: number;
+  /** Reasoning effort for reasoning-capable models (Responses API). */
+  reasoningEffort?: "low" | "medium" | "high";
 }
 
 export interface LLMResponse {

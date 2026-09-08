@@ -284,6 +284,13 @@ export async function saveInvestigation(userId: string, result: InvestigationRes
      VALUES ($1,$2,$3,$4::jsonb,$5,$6)`,
     [userId, result.findingId, result.outcome, JSON.stringify(result.trace), result.startedAt, result.finishedAt],
   );
+  // A rejected investigation resolves the finding so it no longer drives proposals.
+  if (result.outcome === "rejected") {
+    await pool.query(
+      "UPDATE risk_findings SET status = 'resolved', resolved_at = now(), updated_at = now() WHERE finding_id = $1 AND user_id = $2",
+      [result.findingId, userId],
+    );
+  }
 }
 
 export async function listInvestigations(userId: string, findingId: string): Promise<InvestigationResult[]> {

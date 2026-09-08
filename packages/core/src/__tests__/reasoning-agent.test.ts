@@ -58,20 +58,21 @@ function makeContext(
 }
 
 describe("ReasoningAgent selective retrieval", () => {
-  it("retrieves only commercial state for a commercial signal", async () => {
+  it("retrieves the authoritative baseline plus commercial state for a signal", async () => {
     const s = state({
       commercialSignals: [{ kind: "intent", text: "wants to subscribe", evidence: [], resolution: "resolved" }],
     });
     const agent = new ReasoningAgent(makeContext());
     const outcome = await agent.run({ state: s, accountId: "acct" });
-    expect(outcome.toolCalls.map((t) => t.toolName)).toEqual(["get_commercial_state", "get_open_deal"]);
-    expect(outcome.toolCalls[0]?.reasonCategory).toBe("commercial_state_validation");
+    expect(outcome.toolCalls.map((t) => t.toolName)).toEqual(["get_open_deal", "get_open_tasks", "get_commercial_state"]);
   });
 
-  it("skips all tools for a discussion-only state", async () => {
+  it("retrieves the authoritative baseline for a discussion-only state", async () => {
     const agent = new ReasoningAgent(makeContext());
     const outcome = await agent.run({ state: state({}), accountId: "acct" });
-    expect(outcome.toolCalls).toHaveLength(0);
+    // Baseline authoritative reconciliation sources are always retrieved (bounded),
+    // but no optional sources (contacts/notes/email/commercial) are fetched.
+    expect(outcome.toolCalls.map((t) => t.toolName)).toEqual(["get_open_deal", "get_open_tasks"]);
     expect(outcome.status).toBe("completed");
   });
 

@@ -23,7 +23,7 @@ export function createLiveApp(config: AppConfig): LiveWiring {
   if (!apiKey) {
     throw new Error("Live Mode requires an LLM API key (OPENAI_API_KEY or DEEPSEEK_API_KEY).");
   }
-  const llm: LLMProvider = new OpenAILLMProvider({ apiKey, model, baseUrl });
+  const llm: LLMProvider = new OpenAILLMProvider({ apiKey, model, baseUrl, reasoningEffort: config.openaiReasoningEffort });
   const interpreter = new SemanticInterpreter(llm);
 
   const gmailOAuth =

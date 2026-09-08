@@ -6,6 +6,7 @@ import { ingestMeetingArtifact } from "./fireflies-ingest.js";
 import { getPipelineService } from "./pipeline-service.js";
 import { enqueue, type Job } from "./jobs.js";
 import { appendAccountEvent } from "./account-intelligence.js";
+import { refreshTrackedAccount } from "./account-refresh.js";
 
 export async function handleCalendarSync(job: Job): Promise<void> {
   await syncCalendar(job.userId);
@@ -132,9 +133,16 @@ export async function handleInteractionProcess(job: Job): Promise<void> {
   }).catch(() => undefined);
 }
 
+export async function handleAccountRefresh(job: Job): Promise<void> {
+  const accountId = (job.payload.accountId as string | undefined) ?? job.resourceRef;
+  if (!accountId) throw new Error("missing account id");
+  await refreshTrackedAccount(job.userId, accountId);
+}
+
 export const HANDLERS: Record<string, (job: Job) => Promise<void>> = {
   "calendar.sync": handleCalendarSync,
   "fireflies.sync": handleFirefliesSync,
   "fireflies.fetch": handleFirefliesFetch,
   "interaction.process": handleInteractionProcess,
+  "account.refresh": handleAccountRefresh,
 };

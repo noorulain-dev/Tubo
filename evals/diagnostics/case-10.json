@@ -1,0 +1,61 @@
+{
+  "id": "case-10",
+  "name": "Trial expired + grace period expired + no subscription + no exception",
+  "input": {
+    "interaction_text": "Tom Okonkwo: Still no response from Orchard Systems after three outreach attempts. Their trial window has long passed.",
+    "account_id": "co-010"
+  },
+  "expected": {
+    "has_confirmed_commitment": false,
+    "owner_status": "not_applicable",
+    "date_status": "not_applicable",
+    "required_retrieval": [
+      "hubspot",
+      "commercial"
+    ],
+    "reconciliation_classification": "stale"
+  },
+  "actual_semantic": {
+    "commitment_count": 0,
+    "has_resolved_owner": false,
+    "has_resolved_date": false,
+    "commitments": [],
+    "signal_kinds": [
+      "trial_expired",
+      "engagement_risk"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot",
+      "commercial"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "aligned",
+      "stale"
+    ]
+  },
+  "first_divergence": "GROUND_TRUTH_QUESTION"
+}

@@ -44,18 +44,44 @@ Evidence span rules:
   copied verbatim from the interaction and whose "start"/"end" are character
   offsets into the interaction. "source" is always "conversation".
 
-Classification rules:
-- Tentative language ("might", "maybe", "could", "possibly", "perhaps",
-  "should probably", "thinking about") is a candidateCommitment, NEVER a
-  confirmedCommitment.
-- A conditional statement ("if X, then I'll Y") is a conditionalCommitment and
-  MUST preserve the condition verbatim in "condition".
-- A confirmed commitment requires explicit, unconditional language by a named
-  accountable actor.
+Classification rules — distinguish these FIVE categories and assign each to the
+correct bucket. Never cross-contaminate them:
+1. CONFIRMED COMMITMENT (→ confirmedCommitments): explicit, unconditional language
+   that a specific obligation will be performed, by a named OR collective actor.
+2. DISCUSSION/SUGGESTION (→ NOT a commitment, NOT a taskCandidates): brainstorming,
+   hypothetical, or deferred language ("we should probably", "maybe", "let's circle
+   back", "figure out later", "thinking about", "nothing confirmed yet"). Interpret
+   the FULL sentence, not isolated keywords.
+3. CONDITIONAL COMMITMENT (→ conditionalCommitments): "if X, then I'll Y". Preserve
+   the condition verbatim in "condition".
+4. DECISION (→ decisions): a statement that a choice has been made ("we've made the
+   decision", "moving forward").
+5. COMMERCIAL FACT CLAIM (→ commercialSignals, kind "claims_subscribed"): a claim
+   that something already happened — "signed", "executed", "paid", "wired",
+   "activated", "cancelled", "sent", "delivered", "completed", "approved", "went
+   live". These are CLAIMS/SIGNALS to be verified against authoritative sources,
+   NEVER conclusions and NEVER commitments.
+
+Tentative language rules:
+- "should", "could", "might", "maybe", "possibly", "perhaps" are NOT keyword
+  rejections. Read the whole sentence: "Sarah might send it" is UNCERTAIN (→
+  candidateCommitment with resolution "ambiguous"), while a bare discussion of a
+  future idea is no commitment at all.
 
 Ownership and identity rules:
 - Do NOT infer ownership merely because someone is mentioned or present.
   Set "owner" to null unless the text explicitly makes that person accountable.
+- COLLECTIVE/UNRESOLVED owners — an explicitly unspecified actor such as "the
+  team", "our team", "someone from finance", "whoever", or "the rep" — are STILL a
+  confirmed commitment (the action is real), but their "owner" MUST be null and
+  their "resolution" MUST be "ambiguous". NEVER map these to a named participant,
+  the logged-in user, or the account. NEVER invent an email.
+  Example: "I'll have the team send the security docs" → confirmedCommitment with
+  action "send the security docs", owner null, resolution "ambiguous".
+- First-person "we"/"us" spoken by a NAMED individual is that person's OWN
+  organization, not an unresolved collective. A named CUSTOMER saying "We'll
+  finalize the order form" has owner = that customer (resolved). Only null the
+  owner when the actor is genuinely unspecified ("the team", "whoever", "someone").
 - Do NOT fabricate identities or emails. Only resolve entityReferences to the
   explicitly known participants/account supplied. Otherwise set
   "resolvedId": null and "resolution": "ambiguous".
@@ -67,8 +93,15 @@ Date rules:
 Commercial rules:
 - "We want to subscribe" / "we intend to upgrade" is commercial INTENT, not
   evidence of an active subscription. Capture it as a commercialSignals item
-  with resolution "resolved" (the intent is real) but never assert an active
-  subscription state.
+  with kind "intent_to_subscribe" and resolution "resolved".
+- A claim that the subscription was already activated/paid/signed (see FACT CLAIM
+  above) is kind "claims_subscribed" — a claim to verify, not a conclusion.
+- A statement that a trial has ended/expired ("their trial window has long passed",
+  "their trial ended last month", "still no response after the trial closed") is
+  kind "trial_ended" — a state signal to verify, not a commitment.
+- Mere references to a "renewal" timeline or an "upgrade" discussion are NOT
+  commercialSignals. Only emit a commercialSignal for genuine INTENT, a FACT CLAIM,
+  or a trial-state signal.
 
 Output JSON only. Do not include commentary.`;
 

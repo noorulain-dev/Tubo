@@ -1,0 +1,76 @@
+{
+  "id": "case-04",
+  "name": "Vague or conditional deadline",
+  "input": {
+    "interaction_text": "Alicia Grant: If procurement approves the budget, I'll sign the order form by Thursday.\nKen Ito: Understood. And can you confirm when the usage data export will be ready?\nAlicia Grant: I'll get you that sometime next week, no firm date yet.",
+    "account_id": "co-004"
+  },
+  "expected": {
+    "has_confirmed_commitment": true,
+    "owner_status": "resolved",
+    "date_status": "partially_resolved",
+    "required_retrieval": [
+      "hubspot",
+      "tasks"
+    ],
+    "reconciliation_classification": "ambiguous"
+  },
+  "actual_semantic": {
+    "commitment_count": 1,
+    "has_resolved_owner": true,
+    "has_resolved_date": false,
+    "commitments": [
+      {
+        "action": "Provide Ken Ito with the usage data export",
+        "owner": "Alicia Grant",
+        "resolution": "resolved",
+        "deadline_value": null
+      }
+    ],
+    "signal_kinds": [
+      "procurement_dependency"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_deal",
+        "reason": "commitment_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": false
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "hubspot",
+      "tasks"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "ambiguous"
+    ]
+  },
+  "first_divergence": "RECONCILIATION_LOGIC"
+}

@@ -5,6 +5,9 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { FirefliesProvider, isAppError, type IntegrationStatus } from "./core.js";
 import { bearerAuth } from "./auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.js";
+import { logger } from "./logger.js";
+import { rateLimit } from "./rate-limit.js";
+import { getPool, isDbConfigured } from "./db.js";
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "./gmail-oauth.js";
 import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
@@ -27,15 +30,22 @@ export interface CreateAppOptions {
   reset?: () => void;
 }
 
-function errorEnvelope(code: string, message: string, details?: unknown): ErrorEnvelope {
-  return { error: { code, message, ...(details !== undefined ? { details } : {}) } };
+function errorEnvelope(code: string, message: string, details?: unknown, requestId?: string): ErrorEnvelope {
+  return { error: { code, message, ...(details !== undefined ? { details } : {}), ...(requestId ? { requestId } : {}) } };
 }
 
 function handleError(c: Context, err: unknown): Response {
+  const requestId = c.get("requestId") as string | undefined;
   if (isAppError(err)) {
-    return c.json(errorEnvelope(err.code, err.message, err.details), err.status as ContentfulStatusCode);
+    return c.json(errorEnvelope(err.code, err.message, err.details, requestId), err.status as ContentfulStatusCode);
   }
-  return c.json(errorEnvelope("INTERNAL", err instanceof Error ? err.message : "internal error"), 500);
+  // Never leak stack traces or internal messages in production.
+  const production = process.env.NODE_ENV === "production";
+  logger.error(
+    { event: "error", requestId, error_code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) },
+    "unhandled request error",
+  );
+  return c.json(errorEnvelope("INTERNAL_ERROR", production ? "internal server error" : err instanceof Error ? err.message : "internal server error", undefined, requestId), 500);
 }
 
 function auditView(run: RunView) {
@@ -100,6 +110,12 @@ function bearerToken(c: Context): string {
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
 }
 
+declare module "hono" {
+  interface ContextVariableMap {
+    requestId: string;
+  }
+}
+
 export function createApp(opts: CreateAppOptions) {
   const app = new Hono();
   const all = [opts.sampleService, opts.liveService].filter((s): s is RunService => !!s);
@@ -121,11 +137,36 @@ export function createApp(opts: CreateAppOptions) {
     return undefined;
   };
 
+  // Request correlation: accept a safe incoming X-Request-ID or mint one; echo it.
+  app.use("*", async (c, next) => {
+    const incoming = c.req.header("x-request-id");
+    const requestId = incoming && /^[\w.-]{1,128}$/.test(incoming) ? incoming : randomUUID();
+    c.set("requestId", requestId);
+    c.header("x-request-id", requestId);
+    await next();
+  });
   app.use("*", cors());
   app.use("*", bearerAuth());
+  // Structured request logging (runs after auth so userId is known).
+  app.use("*", async (c, next) => {
+    const start = Date.now();
+    await next();
+    logger.info(
+      {
+        event: "request",
+        requestId: c.get("requestId"),
+        method: c.req.method,
+        path: c.req.path,
+        status: c.res.status,
+        latency_ms: Date.now() - start,
+        userId: currentUser(c)?.id,
+      },
+      "request",
+    );
+  });
 
   // ------------------------------------------------------------------- auth
-  app.post("/auth/register", async (c) => {
+  app.post("/auth/register", rateLimit({ max: 5, windowMs: 60_000 }), async (c) => {
     const body = (await c.req.json().catch(() => null)) as { email?: unknown; password?: unknown } | null;
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
@@ -142,7 +183,7 @@ export function createApp(opts: CreateAppOptions) {
     }
   });
 
-  app.post("/auth/login", async (c) => {
+  app.post("/auth/login", rateLimit({ max: 10, windowMs: 60_000 }), async (c) => {
     const body = (await c.req.json().catch(() => null)) as { email?: unknown; password?: unknown } | null;
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
@@ -235,6 +276,19 @@ export function createApp(opts: CreateAppOptions) {
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
     const findings = await listFindings(user.id, c.req.param("accountId"));
     return c.json({ findings });
+  });
+
+  app.post("/accounts/:accountId/refresh", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const accountId = c.req.param("accountId");
+    const { id, created } = await enqueue({
+      type: "account.refresh",
+      userId: user.id,
+      resourceRef: accountId,
+      idempotencyKey: `acct:refresh:manual:${user.id}:${accountId}:${Math.floor(Date.now() / 1000)}`,
+    });
+    return c.json({ enqueued: true, jobId: id, created });
   });
 
   app.post("/findings/:findingId/investigate", async (c) => {
@@ -443,6 +497,23 @@ export function createApp(opts: CreateAppOptions) {
   });
 
   app.get("/health", (c) => c.json({ status: "ok", mode: opts.mode ?? "sample", liveAvailable: !!opts.liveService }));
+
+  // Readiness: critical dependency (database) must be reachable to serve.
+  app.get("/ready", async (c) => {
+    let database = "ok";
+    if (!isDbConfigured()) {
+      database = "not_configured";
+    } else {
+      try {
+        await getPool().query("SELECT 1");
+      } catch {
+        database = "down";
+      }
+    }
+    // No credentials/account details are ever returned here.
+    const ready = database === "ok";
+    return c.json({ status: ready ? "ready" : "not_ready", dependencies: { database } }, ready ? 200 : 503);
+  });
 
   // ---------------------------------------------------- customer connections
   app.get("/connections", async (c) => {

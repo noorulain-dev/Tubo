@@ -84,6 +84,14 @@ export function buildDefaultTools(): ToolDefinition[] {
       handler: (a, ctx) => ctx.email.getThread(a.threadId),
     },
     {
+      name: "get_outbound_communication",
+      description: "Check whether outbound communication has been sent for an account (verifies sent/paid/delivered claims against the authoritative email source).",
+      argsSchema: z.object({ accountId: z.string() }),
+      source: "gmail",
+      authority: "authoritative",
+      handler: (a, ctx) => ctx.email.hasOutboundCommunication(a.accountId),
+    },
+    {
       name: "check_existing_action",
       description: "Check whether an equivalent task already exists.",
       argsSchema: z.object({

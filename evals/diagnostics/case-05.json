@@ -1,0 +1,75 @@
+{
+  "id": "case-05",
+  "name": "Discussion without a commitment",
+  "input": {
+    "interaction_text": "Priya Nair: We should probably set up a QBR with Vertex Data before their renewal in Q4.\nTom Okonkwo: Yeah, maybe. I was thinking about looping in our CSM and an exec sponsor.\nPriya Nair: Let's circle back on it after the pipeline review. Nothing confirmed yet.\nTom Okonkwo: Agreed, we'll figure out the date later.",
+    "account_id": "co-005"
+  },
+  "expected": {
+    "has_confirmed_commitment": false,
+    "owner_status": "not_applicable",
+    "date_status": "not_applicable",
+    "required_retrieval": [
+      "hubspot",
+      "tasks"
+    ],
+    "reconciliation_classification": "aligned"
+  },
+  "actual_semantic": {
+    "commitment_count": 0,
+    "has_resolved_owner": false,
+    "has_resolved_date": false,
+    "commitments": [],
+    "signal_kinds": [
+      "renewal"
+    ],
+    "semantic_ok": true,
+    "semantic_errors": []
+  },
+  "agent": {
+    "tools_selected": [
+      {
+        "tool": "get_open_tasks",
+        "reason": "task_deduplication",
+        "ok": true
+      },
+      {
+        "tool": "check_existing_action",
+        "reason": "execution_gap_check",
+        "ok": true
+      },
+      {
+        "tool": "get_contacts",
+        "reason": "identity_resolution",
+        "ok": true
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      },
+      {
+        "tool": "get_commercial_state",
+        "reason": "commercial_state_validation",
+        "ok": false
+      },
+      {
+        "tool": "get_open_deal",
+        "reason": "crm_state_validation",
+        "ok": true
+      }
+    ],
+    "required_retrieved": [
+      "tasks",
+      "hubspot"
+    ],
+    "missing_required": []
+  },
+  "reconciliation": {
+    "classifications": [
+      "missing",
+      "ambiguous"
+    ]
+  },
+  "first_divergence": "RECONCILIATION_LOGIC"
+}

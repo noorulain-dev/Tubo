@@ -46,7 +46,7 @@ interface FirefliesTranscript {
 }
 
 export function normalizeFirefliesMeeting(raw: FirefliesTranscript): MeetingArtifact {
-  const participants = raw.participants ?? [];
+  const participants = raw.participants ?? (raw.meeting_attendees ?? []).map((a) => a.displayName ?? a.email ?? "").filter((x) => x !== "");
   const sentences = (raw.sentences ?? [])
     .slice()
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))

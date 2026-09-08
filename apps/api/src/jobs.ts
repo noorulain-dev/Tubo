@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db.js";
 
-export type JobType = "calendar.sync" | "fireflies.sync" | "fireflies.fetch" | "interaction.process";
+export type JobType = "calendar.sync" | "fireflies.sync" | "fireflies.fetch" | "interaction.process" | "account.refresh";
 export type JobStatus = "scheduled" | "running" | "retrying" | "completed" | "failed" | "cancelled";
 
 export interface Job {
@@ -131,6 +131,21 @@ export async function failJob(jobId: string, errorCode: string, transient: boole
 
 export async function emitJobEvent(jobId: string, userId: string, eventType: string): Promise<void> {
   await getPool().query("INSERT INTO job_events (job_id, user_id, event_type) VALUES ($1, $2, $3)", [jobId, userId, eventType]);
+}
+
+/**
+ * Reclaim jobs left "running" by a crashed worker (no heartbeat). Returns the
+ * number of jobs re-queued. A conservative default of 10 minutes avoids racing a
+ * healthy but slow job.
+ */
+export async function reclaimStaleRunning(staleAfterMs = 10 * 60 * 1000): Promise<number> {
+  const pool = getPool();
+  const res = await pool.query(
+    `UPDATE jobs SET status = 'retrying', started_at = NULL
+      WHERE status = 'running' AND started_at < now() - ($1 * interval '1 millisecond')`,
+    [staleAfterMs],
+  );
+  return res.rowCount ?? 0;
 }
 
 /** Distinct user ids having a given connection provider (for periodic scan). */

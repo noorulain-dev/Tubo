@@ -4,6 +4,7 @@ import {
   ReasoningAgent,
   SemanticInterpreter,
   detectExecutionGaps,
+  evaluateAction,
   reconcile,
   reconcileOperationalState,
   type AgentReadContext,
@@ -17,6 +18,7 @@ import {
   type LLMProvider,
   type LLMRequest,
   type OperationalContext,
+  type PolicyContext,
   type TaskRecord,
 } from "./core.js";
 
@@ -229,6 +231,8 @@ async function runCase(c: EvalCase, exp: EvalExpected): Promise<CaseResult> {
   let proposals: string[] = [];
   let toolNames: string[] = [];
   let gapTypes: string[] = [];
+  let policyActions: string[] = [];
+  let incorrectExternalExecution = 0;
   const audit = ["interaction_received", `semantic_extraction_completed (valid=${semanticOk})`];
 
   if (semantic) {
@@ -245,18 +249,36 @@ async function runCase(c: EvalCase, exp: EvalExpected): Promise<CaseResult> {
     proposals = findings.filter((f) => f.proposedAction).map((f) => f.proposedAction!.type);
     gapTypes = gaps.map((g) => g.type);
     audit.push(`reconciliation: ${classifications.join(",") || "none"}`);
+
+    // Policy / safety: run the real deterministic gate over every proposed action.
+    const policyContext: PolicyContext = { commercialState: op.commercialState, openDeal: op.openDeal };
+    for (const f of findings) {
+      if (!f.proposedAction) continue;
+      const ev = evaluateAction(
+        { type: f.proposedAction.type, payload: f.proposedAction.payload as Record<string, unknown> | undefined },
+        policyContext,
+      );
+      policyActions.push(ev.action);
+      const consequential = ["update_stage", "create_draft", "update_field"].includes(f.proposedAction.type);
+      if (consequential && (ev.action === "safe_to_prepare" || ev.action === "informational")) {
+        incorrectExternalExecution++;
+      }
+    }
   }
 
   const commitmentCount = semantic?.confirmedCommitments.length ?? 0;
   const conditionalCount = semantic?.conditionalCommitments.length ?? 0;
   const signalCount = semantic?.commercialSignals.length ?? 0;
   const hasResolvedOwner = (semantic?.confirmedCommitments ?? []).some((cm) => cm.owner != null);
+  const hasResolvedDate = (semantic?.confirmedCommitments ?? []).some((cm) => cm.deadline?.value != null);
+  const dateStatus = hasResolvedDate ? "resolved" : (semantic?.confirmedCommitments.length ?? 0) > 0 ? "ambiguous" : "none";
 
   const expCommitment = exp.semantic_interpretation.has_confirmed_commitment;
   const classificationMatch = classifications.includes(exp.reconciliation_classification);
   const commitmentRecall = expCommitment ? (commitmentCount > 0 ? 1 : 0) : 1;
   const commitmentPrecision = commitmentCount > 0 ? (expCommitment ? 1 : 0) : 1;
   const ownerAccuracy = (exp.owner_date_resolution.owner_status === "resolved") === hasResolvedOwner ? 1 : 0;
+  const dateAccuracy = (exp.owner_date_resolution.date_status === "resolved") === hasResolvedDate ? 1 : 0;
   const evidenceValidity = evidenceValid ? 1 : 0;
 
   let mustNotViolations = 0;
@@ -289,6 +311,8 @@ async function runCase(c: EvalCase, exp: EvalExpected): Promise<CaseResult> {
       conditional: conditionalCount,
       signals: signalCount,
       proposals,
+      policy_actions: policyActions,
+      date_status: dateStatus,
       toolCalls: toolNames,
     },
     layer,
@@ -297,9 +321,11 @@ async function runCase(c: EvalCase, exp: EvalExpected): Promise<CaseResult> {
       commitment_precision: commitmentPrecision,
       commitment_recall: commitmentRecall,
       owner_accuracy: ownerAccuracy,
+      date_accuracy: dateAccuracy,
       evidence_validity: evidenceValidity,
       classification_match: classificationMatch ? 1 : 0,
       must_not_execute_violations: mustNotViolations,
+      incorrect_external_execution: incorrectExternalExecution,
       tool_calls: toolNames.length,
       latency_ms: latencyMs,
       prompt_tokens: interpret.observability.inputTokens,
@@ -333,6 +359,7 @@ async function main() {
       commitment_precision: avg((r) => Number(r.metrics.commitment_precision)),
       commitment_recall: avg((r) => Number(r.metrics.commitment_recall)),
       owner_accuracy: avg((r) => Number(r.metrics.owner_accuracy)),
+      date_accuracy: avg((r) => Number(r.metrics.date_accuracy)),
       evidence_validity: avg((r) => Number(r.metrics.evidence_validity)),
     },
     layer_b: {
@@ -342,6 +369,7 @@ async function main() {
     layer_c: {
       classification_accuracy: avg((r) => Number(r.metrics.classification_match)),
       must_not_execute_violations: sum((r) => Number(r.metrics.must_not_execute_violations)),
+      incorrect_external_execution: sum((r) => Number(r.metrics.incorrect_external_execution)),
     },
     operational: {
       total_latency_ms: sum((r) => Number(r.metrics.latency_ms)),
@@ -351,20 +379,35 @@ async function main() {
     },
   };
 
-  const out = { meta: { runner: "v0", generatedAt: new Date().toISOString(), note: "Deterministic comparison; semantic layer uses a keyword stand-in LLM (no production LLM wired)." }, aggregate, cases: results };
-  writeFileSync(resolve(EVALS_DIR, "v0-results.json"), JSON.stringify(out, null, 2));
+  const failures = results.filter((r) => !r.pass).map((r) => ({
+    id: r.id, name: r.name, layer: r.layer, category: r.category,
+    expected: r.expected.classification,
+    actual: (r.actual.classifications as string[]).join(", ") || "—",
+  }));
+
+  const out = {
+    meta: {
+      runner: "harness-sanity",
+      generatedAt: new Date().toISOString(),
+      note: "DETERMINISTIC HARNESS SANITY RUN. The semantic layer uses a keyword-based stand-in LLM (createEvalLLM), NOT the production SemanticInterpreter/LLM path. This run validates the fixture builder, reconciliation, policy, and output plumbing only. It must NOT be interpreted as production-model quality. Expected outputs are never passed to the model.",
+    },
+    aggregate,
+    failures,
+    cases: results,
+  };
+  writeFileSync(resolve(EVALS_DIR, "harness-sanity-results.json"), JSON.stringify(out, null, 2));
 
   // CSV
-  const header = ["case_id", "name", "pass", "expected_classification", "actual_classifications", "layer", "category", "commitment_precision", "commitment_recall", "owner_accuracy", "classification_match", "tool_calls", "latency_ms"];
+  const header = ["case_id", "name", "pass", "expected_classification", "actual_classifications", "layer", "category", "commitment_precision", "commitment_recall", "owner_accuracy", "date_accuracy", "classification_match", "tool_calls", "latency_ms"];
   const csvLines = [header.join(",")];
   for (const r of results) {
-    csvLines.push([r.id, `"${r.name}"`, r.pass, r.expected.classification, `"${(r.actual.classifications as string[]).join("|")}"`, r.layer, r.category, r.metrics.commitment_precision, r.metrics.commitment_recall, r.metrics.owner_accuracy, r.metrics.classification_match, r.metrics.tool_calls, r.metrics.latency_ms].join(","));
+    csvLines.push([r.id, `"${r.name}"`, r.pass, r.expected.classification, `"${(r.actual.classifications as string[]).join("|")}"`, r.layer, r.category, r.metrics.commitment_precision, r.metrics.commitment_recall, r.metrics.owner_accuracy, r.metrics.date_accuracy, r.metrics.classification_match, r.metrics.tool_calls, r.metrics.latency_ms].join(","));
   }
-  writeFileSync(resolve(EVALS_DIR, "v0-summary.csv"), csvLines.join("\n"));
+  writeFileSync(resolve(EVALS_DIR, "harness-sanity-summary.csv"), csvLines.join("\n"));
 
   // Markdown
   const md: string[] = [
-    "# Revenue Execution OS — v0 Evaluation Results",
+    "# Revenue Execution OS — harness-sanity (Deterministic) Evaluation Results",
     "",
     `Generated ${new Date().toISOString()} · deterministic comparison (no LLM judge).`,
     "",
@@ -377,24 +420,34 @@ async function main() {
     `| A | Commitment precision | ${aggregate.layer_a.commitment_precision} |`,
     `| A | Commitment recall | ${aggregate.layer_a.commitment_recall} |`,
     `| A | Owner accuracy | ${aggregate.layer_a.owner_accuracy} |`,
+    `| A | Date accuracy | ${aggregate.layer_a.date_accuracy} |`,
     `| A | Evidence validity | ${aggregate.layer_a.evidence_validity} |`,
     `| B | Avg tool calls/run | ${aggregate.layer_b.avg_tool_calls} |`,
     `| C | Classification accuracy | ${aggregate.layer_c.classification_accuracy} |`,
     `| C | Must-not-execute violations | ${aggregate.layer_c.must_not_execute_violations} |`,
+    `| C | Incorrect external execution | ${aggregate.layer_c.incorrect_external_execution} |`,
     `| Ops | Avg latency (ms) | ${aggregate.operational.avg_latency_ms} |`,
     "",
-    "## Per-case results",
+    "## Failure list",
     "",
-    "| Case | Pass | Expected | Actual | Layer | Category |",
-    "|---|---|---|---|---|---|",
+    "| Case | Expected | Actual | Layer |",
+    "|---|---|---|---|",
   ];
+  for (const f of failures) {
+    md.push(`| ${f.id} ${f.name} | ${f.expected} | ${f.actual} | ${f.layer} |`);
+  }
+  md.push("");
+  md.push("## Per-case results");
+  md.push("");
+  md.push("| Case | Pass | Expected | Actual | Layer | Category |");
+  md.push("|---|---|---|---|---|---|");
   for (const r of results) {
     md.push(`| ${r.id} ${r.name} | ${r.pass ? "✅" : "❌"} | ${r.expected.classification} | ${(r.actual.classifications as string[]).join(", ") || "—"} | ${r.layer} | ${r.category} |`);
   }
-  writeFileSync(resolve(EVALS_DIR, "v0-results.md"), md.join("\n"));
+  writeFileSync(resolve(EVALS_DIR, "harness-sanity-summary.md"), md.join("\n"));
 
   // eslint-disable-next-line no-console
-  console.log(`Evaluation complete: ${aggregate.cases_passed}/${aggregate.cases_total} passed. Wrote v0-results.json, v0-results.md, v0-summary.csv.`);
+  console.log(`Harness sanity complete: ${aggregate.cases_passed}/${aggregate.cases_total} passed. Wrote harness-sanity-results.json, harness-sanity-summary.md.`);
   // eslint-disable-next-line no-console
   console.log(JSON.stringify(aggregate, null, 2));
 }

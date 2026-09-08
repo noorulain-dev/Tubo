@@ -13,7 +13,13 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "smoke:hubspot": "npm run smoke:hubspot --workspace @revexec/api"
+    "smoke:hubspot": "npm run smoke:hubspot --workspace @revexec/api",
+    "generate:integration-key": "npm run generate:integration-key --workspace @revexec/api",
+    "smoke:hubspot-write": "npm run smoke:hubspot-write --workspace @revexec/api",
+    "smoke:gmail": "npm run smoke:gmail --workspace @revexec/api",
+    "smoke:gmail-draft": "npm run smoke:gmail-draft --workspace @revexec/api",
+    "smoke:calendar": "npm run smoke:calendar --workspace @revexec/api",
+    "verify:step50-core": "npm run test --workspace @revexec/core && npm run test --workspace @revexec/api"
   },
   "engines": {
     "node": ">=20"

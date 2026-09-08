@@ -22,7 +22,7 @@ import {
   type EmailMessageRecord,
   type EmailThreadRecord,
 } from "./core.js";
-import { getGmailRefreshToken, getHubspotAccessToken } from "./connections.js";
+import { getGmailRefreshToken, getHubspotAccessToken, markNeedsReauth } from "./connections.js";
 import { exchangeGmailRefreshToken } from "./gmail-oauth.js";
 import { createSampleCommercial } from "./sample-fixtures.js";
 import { PostgresAuditSink, PostgresExecutionStore } from "./store-pg.js";
@@ -109,12 +109,17 @@ export class LiveProviderResolver implements ProviderResolver {
     const gmailRefresh = await getGmailRefreshToken(userId);
     if (gmailRefresh && this.gmailOAuth) {
       const manager = new GmailTokenManager(this.gmailOAuth.clientId, this.gmailOAuth.clientSecret, gmailRefresh);
-      const accessToken = await manager.getAccessToken().catch(() => undefined);
-      if (accessToken) {
+      try {
+        const accessToken = await manager.getAccessToken();
         gmail = new GmailProvider(new GmailClient({ accessToken, audit }), { audit });
+      } catch (err) {
+        // Distinguish revoked consent (needs reauthorization) from a temporary
+        // Google outage (retry-safe). Only mark needs_reauth on 4xx.
+        if (isReauthError(err)) {
+          await markNeedsReauth(userId, "gmail");
+        }
+        // gmail stays undefined -> empty provider (no fabricated "no email").
       }
-      // On refresh failure, gmail stays undefined -> empty provider, and the
-      // connection is flagged needs_reauth by the caller via warnings.
     }
 
     const commercial: CommercialStateReadProvider = createSampleCommercial();
@@ -138,6 +143,11 @@ export class LiveProviderResolver implements ProviderResolver {
 // ---------------------------------------------------------------------------
 // Empty providers (return nothing; writes throw). Never fabricate data.
 // ---------------------------------------------------------------------------
+
+function isReauthError(err: unknown): boolean {
+  const status = (err as { status?: number } | undefined)?.status;
+  return status === 400 || status === 401;
+}
 
 function emptyCrmRead(): CRMReadProvider {
   return {

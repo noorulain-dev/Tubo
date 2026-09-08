@@ -74,12 +74,13 @@ export interface IntegrationsView {
   live: boolean;
 }
 
-export type ConnectionProvider = "stripe" | "hubspot" | "gmail";
+export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar";
 
 export interface ConnectionStatus {
-  stripe: { connected: boolean };
-  hubspot: { connected: boolean };
-  gmail: { connected: boolean };
+  stripe: { connected: boolean; needsReauth: boolean };
+  hubspot: { connected: boolean; needsReauth: boolean };
+  gmail: { connected: boolean; needsReauth: boolean };
+  calendar: { connected: boolean; needsReauth: boolean };
 }
 
 export const api = {
@@ -112,6 +113,13 @@ export const api = {
   getGmailOAuthUrl(): Promise<{ url: string }> {
     const returnTo = encodeURIComponent(window.location.origin);
     return request<{ url: string }>(`/gmail/oauth/url?returnTo=${returnTo}`, { method: "GET" });
+  },
+  getCalendarOAuthUrl(): Promise<{ url: string }> {
+    const returnTo = encodeURIComponent(window.location.origin);
+    return request<{ url: string }>(`/integrations/google-calendar/oauth/url?returnTo=${returnTo}`, { method: "GET" });
+  },
+  syncCalendar(): Promise<{ synced: number; window: { start: string; end: string } }> {
+    return request<{ synced: number; window: { start: string; end: string } }>(`/integrations/google-calendar/sync`, { method: "POST" });
   },
   getConnections(): Promise<ConnectionStatus> {
     return request<ConnectionStatus>("/connections", { method: "GET" });

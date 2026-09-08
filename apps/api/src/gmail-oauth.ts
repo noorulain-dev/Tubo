@@ -10,6 +10,12 @@ export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.compose",
 ];
 
+/** Read-only Calendar scope (event reads only — never write/delete/record). */
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+
+/** Combined Google scopes for a re-consent covering Gmail + Calendar. */
+export const GOOGLE_SCOPES = [...GMAIL_SCOPES, CALENDAR_SCOPE];
+
 export interface GmailAuthorizeUrlOptions {
   clientId: string;
   redirectUri: string;
@@ -101,7 +107,9 @@ export async function exchangeGmailRefreshToken(opts: GmailOAuthOptions): Promis
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Gmail token refresh failed (${res.status}): ${body.slice(0, 300)}`);
+    const err = new Error(`Gmail token refresh failed (${res.status}): ${body.slice(0, 300)}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   const data = (await res.json()) as { access_token?: string; expires_in?: number };

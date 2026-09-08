@@ -42,9 +42,12 @@ export async function ensureSchema(): Promise<void> {
       user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       provider text NOT NULL,
       secret text NOT NULL,
+      status text NOT NULL DEFAULT 'connected',
       created_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (user_id, provider)
     );
+
+    ALTER TABLE connections ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'connected';
 
     -- Pipeline persistence (see db/migrations/0002_tenancy.sql).
     CREATE TABLE IF NOT EXISTS app_runs (
@@ -92,5 +95,26 @@ export async function ensureSchema(): Promise<void> {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_app_executions_sig ON app_executions(proposal_signature);
     CREATE INDEX IF NOT EXISTS idx_app_executions_user ON app_executions(user_id);
+
+    CREATE TABLE IF NOT EXISTS calendar_events (
+      id                 text PRIMARY KEY,
+      user_id            text NOT NULL,
+      provider           text NOT NULL,
+      provider_event_id  text NOT NULL,
+      calendar_id        text NOT NULL,
+      title              text,
+      start_at           timestamptz,
+      end_at             timestamptz,
+      organizer_email    text,
+      attendees          jsonb NOT NULL DEFAULT '[]'::jsonb,
+      meeting_url        text,
+      status             text NOT NULL,
+      provider_updated_at timestamptz,
+      synced_at          timestamptz NOT NULL DEFAULT now(),
+      created_at         timestamptz NOT NULL DEFAULT now(),
+      updated_at         timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, provider, calendar_id, provider_event_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_calendar_events_user ON calendar_events(user_id);
   `);
 }

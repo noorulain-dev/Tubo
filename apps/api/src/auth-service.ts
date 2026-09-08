@@ -15,7 +15,7 @@ export async function registerUser(email: string, password: string): Promise<{ t
   const token = randomBytes(32).toString("hex");
   const pool = getPool();
   await pool.query("INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)", [id, email, passwordHash]);
-  await pool.query("INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + interval $3)", [token, id, SESSION_TTL]);
+  await pool.query("INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + $3::interval)", [token, id, SESSION_TTL]);
   return { token, user: { id, email } };
 }
 
@@ -27,7 +27,7 @@ export async function loginUser(email: string, password: string): Promise<{ toke
     throw new Error("Invalid email or password");
   }
   const token = randomBytes(32).toString("hex");
-  await pool.query("INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + interval $3)", [token, row.id, SESSION_TTL]);
+  await pool.query("INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + $3::interval)", [token, row.id, SESSION_TTL]);
   return { token, user: { id: row.id, email: row.email } };
 }
 

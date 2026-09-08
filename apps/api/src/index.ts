@@ -33,9 +33,10 @@ async function main(): Promise<void> {
 
   const redirectUri =
     config.gmailRedirectUri ?? `http://localhost:${config.port}/gmail/oauth/callback`;
+  const calendarRedirectUri = `http://localhost:${config.port}/integrations/google-calendar/oauth/callback`;
   const gmailOAuth =
     config.gmailClientId && config.gmailClientSecret
-      ? { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, redirectUri }
+      ? { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, redirectUri, calendarRedirectUri }
       : undefined;
 
   const app = createApp({

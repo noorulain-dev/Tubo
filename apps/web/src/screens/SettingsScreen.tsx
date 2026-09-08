@@ -60,7 +60,29 @@ export function SettingsScreen() {
     }
   }
 
-  async function disconnect(provider: "stripe" | "hubspot" | "gmail") {
+  async function authorizeCalendar() {
+    setError(null);
+    try {
+      const { url } = await api.getCalendarOAuthUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start Google Calendar authorization");
+    }
+  }
+
+  async function syncNow() {
+    setError(null);
+    setBusy("calendar");
+    try {
+      await api.syncCalendar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to sync calendar");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function disconnect(provider: "stripe" | "hubspot" | "gmail" | "google-calendar") {
     setError(null);
     setBusy(provider);
     try {
@@ -75,6 +97,8 @@ export function SettingsScreen() {
   const stripe = connections?.stripe.connected ?? false;
   const hubspot = connections?.hubspot.connected ?? false;
   const gmail = connections?.gmail.connected ?? false;
+  const calendar = connections?.calendar.connected ?? false;
+  const calendarNeedsReauth = connections?.calendar.needsReauth ?? false;
 
   return (
     <>
@@ -161,6 +185,38 @@ export function SettingsScreen() {
               <div style={{ marginTop: 8 }}>
                 <Button variant="primary" onClick={() => void authorizeGmail()}>
                   Connect with Google
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      </Section>
+
+      <Section title="">
+        <Card>
+          <div className="field">
+            <label>Google Calendar</label>
+            <p className="helper">
+              Calendar is used to understand meeting context and match notes from connected
+              meeting tools. Revenue Execution OS does not record meetings.
+            </p>
+            {calendar ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                <StatusBadge connected />
+                {calendarNeedsReauth ? (
+                  <span className="badge badge-warning">Needs reauthorization</span>
+                ) : null}
+                <Button variant="secondary" disabled={busy === "calendar"} onClick={() => void syncNow()}>
+                  {busy === "calendar" ? "Syncing…" : "Sync now"}
+                </Button>
+                <Button variant="ghost" disabled={busy === "calendar"} onClick={() => void disconnect("google-calendar")}>
+                  Disconnect
+                </Button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                <Button variant="primary" onClick={() => void authorizeCalendar()}>
+                  Connect Calendar
                 </Button>
               </div>
             )}

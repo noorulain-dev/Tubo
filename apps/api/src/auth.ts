@@ -8,6 +8,7 @@ const PUBLIC_PATHS = new Set([
   "/auth/register",
   "/auth/login",
   "/gmail/oauth/callback",
+  "/integrations/google-calendar/oauth/callback",
 ]);
 
 declare module "hono" {

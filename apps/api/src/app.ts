@@ -6,7 +6,8 @@ import { isAppError, type IntegrationStatus } from "./core.js";
 import { bearerAuth } from "./auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.js";
 import { getConnectionsStatus, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
-import { buildGmailAuthorizationUrl, exchangeGmailAuthCode } from "./gmail-oauth.js";
+import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "./gmail-oauth.js";
+import { syncCalendar } from "./calendar-sync.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
@@ -15,7 +16,7 @@ export interface CreateAppOptions {
   liveService?: RunService;
   mode?: "sample" | "integration";
   integrations?: IntegrationStatus;
-  gmailOAuth?: { clientId: string; clientSecret: string; redirectUri: string };
+  gmailOAuth?: { clientId: string; clientSecret: string; redirectUri: string; calendarRedirectUri?: string };
   reset?: () => void;
 }
 
@@ -295,7 +296,7 @@ export function createApp(opts: CreateAppOptions) {
     const user = currentUser(c);
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
     const provider = c.req.param("provider") as ConnectionProvider;
-    if (!["stripe", "hubspot", "gmail"].includes(provider)) {
+    if (!["stripe", "hubspot", "gmail", "google-calendar"].includes(provider)) {
       return c.json(errorEnvelope("VALIDATION", "unknown provider"), 400);
     }
     await removeConnection(user.id, provider);
@@ -338,6 +339,57 @@ export function createApp(opts: CreateAppOptions) {
       return c.html(oauthPage("Gmail connected successfully.", returnTo, true));
     } catch (err) {
       return c.html(oauthPage(`Failed to connect Gmail: ${err instanceof Error ? err.message : String(err)}`, returnTo, false));
+    }
+  });
+
+  app.get("/integrations/google-calendar/oauth/url", (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const g = opts.gmailOAuth;
+    if (!g) return c.json(errorEnvelope("UNAVAILABLE", "Google OAuth is not configured"), 400);
+    const returnTo = safeReturnTo(c.req.query("returnTo"));
+    const state = JSON.stringify({ nonce: randomUUID(), returnTo, userId: user.id });
+    const url = buildGmailAuthorizationUrl({
+      clientId: g.clientId,
+      redirectUri: g.calendarRedirectUri ?? g.redirectUri,
+      state,
+      scopes: GOOGLE_SCOPES,
+    });
+    return c.json({ url });
+  });
+
+  app.get("/integrations/google-calendar/oauth/callback", async (c) => {
+    const g = opts.gmailOAuth;
+    const { returnTo, userId } = parseState(c.req.query("state"));
+    if (!g) return c.html(oauthPage("Google OAuth is not configured.", returnTo, false));
+    const code = c.req.query("code");
+    const denied = c.req.query("error");
+    if (denied || !code) return c.html(oauthPage("Authorization was not completed.", returnTo, false));
+    try {
+      const tokens = await exchangeGmailAuthCode({
+        clientId: g.clientId,
+        clientSecret: g.clientSecret,
+        redirectUri: g.calendarRedirectUri ?? g.redirectUri,
+        code,
+      });
+      if (tokens.refreshToken && userId) {
+        await setConnection(userId, "gmail", tokens.refreshToken);
+        await setConnection(userId, "google-calendar", tokens.refreshToken);
+      }
+      return c.html(oauthPage("Google Calendar connected successfully.", returnTo, true));
+    } catch (err) {
+      return c.html(oauthPage(`Failed to connect Calendar: ${err instanceof Error ? err.message : String(err)}`, returnTo, false));
+    }
+  });
+
+  app.post("/integrations/google-calendar/sync", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    try {
+      const result = await syncCalendar(user.id);
+      return c.json(result);
+    } catch (err) {
+      return handleError(c, err);
     }
   });
 

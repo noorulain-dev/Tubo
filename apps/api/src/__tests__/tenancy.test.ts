@@ -80,6 +80,17 @@ describe("tenancy and persistence (step 50)", () => {
     expect(approved?.status).toBe("approved");
   });
 
+  it("prevents User B from rejecting/editing User A's proposal", async () => {
+    const { service } = makeService();
+    const run = await service.process({ text: "I'll send the proposal by Friday.", kind: "note", accountId: "demo_missing" }, "userA");
+    const id = run.proposals[0]!.id;
+    expect(await service.rejectProposal(id, "userB", "userB")).toBeUndefined();
+    expect(await service.editProposal(id, "userB", { payload: { title: "hacked" } })).toBeUndefined();
+    // User A can still reject.
+    const rejected = await service.rejectProposal(id, "userA", "userA");
+    expect(rejected?.status).toBe("rejected");
+  });
+
   it("persists runs and proposals across RunService recreation (shared store)", async () => {
     const store = new InMemoryRunStore();
     const executionStore = new InMemoryExecutionStore();

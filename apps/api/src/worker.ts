@@ -4,6 +4,9 @@ import { ensureSchema } from "./db.js";
 import { claimNext, completeJob, emitJobEvent, enqueue, failJob, listConnectedUserIds, type Job, type JobType } from "./jobs.js";
 import { HANDLERS } from "./job-handlers.js";
 import { listExpiringChannels, registerWatch } from "./calendar-watch.js";
+import { createLiveApp } from "./live.js";
+import { setPipelineService } from "./pipeline-service.js";
+import { isLiveConfigured, loadConfig } from "./core.js";
 
 const ALL_TYPES: JobType[] = ["calendar.sync", "fireflies.sync", "fireflies.fetch", "interaction.process"];
 
@@ -59,6 +62,12 @@ async function main(): Promise<void> {
     loadDotenv({ path: p });
   }
   await ensureSchema();
+
+  // Register the live pipeline so background jobs use the same engine as manual.
+  const config = loadConfig();
+  if (isLiveConfigured(config)) {
+    setPipelineService(createLiveApp(config).service);
+  }
 
   await scheduleScan();
   setInterval(() => {

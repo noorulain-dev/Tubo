@@ -1,15 +1,14 @@
-import { FirefliesProvider } from "./core.js";
+import { FirefliesProvider, type CalendarEventInput, type HubSpotIdentityInput, type MeetingArtifact } from "./core.js";
 import { getPool } from "./db.js";
 import { getFirefliesApiKey } from "./connections.js";
-import { syncCalendar } from "./calendar-sync.js";
+import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
+import { ingestMeetingArtifact } from "./fireflies-ingest.js";
+import { getPipelineService } from "./pipeline-service.js";
 import { enqueue, type Job } from "./jobs.js";
 
 export async function handleCalendarSync(job: Job): Promise<void> {
   await syncCalendar(job.userId);
 
-  // Event-driven follow-up: for every upcoming meeting, schedule a one-shot
-  // Fireflies discovery 10 minutes after it ends (instead of polling Fireflies
-  // endlessly). Idempotent by meeting id + end time.
   const apiKey = await getFirefliesApiKey(job.userId);
   if (!apiKey) return;
   const pool = getPool();
@@ -28,10 +27,9 @@ export async function handleCalendarSync(job: Job): Promise<void> {
   }
 }
 
-/** Discovery: list recent Fireflies meetings, enqueue a fetch for each unseen one. */
 export async function handleFirefliesSync(job: Job): Promise<void> {
   const apiKey = await getFirefliesApiKey(job.userId);
-  if (!apiKey) return; // no Fireflies connection → no-op
+  if (!apiKey) return;
   const provider = new FirefliesProvider({ apiKey });
   const meetings = await provider.listRecentMeetings();
   const pool = getPool();
@@ -40,7 +38,7 @@ export async function handleFirefliesSync(job: Job): Promise<void> {
       "SELECT 1 FROM meeting_artifacts WHERE user_id = $1 AND provider = $2 AND provider_meeting_id = $3",
       [job.userId, "fireflies", m.providerMeetingId],
     );
-    if (exists.rows.length) continue; // already ingested → skip
+    if (exists.rows.length) continue;
     await enqueue({
       type: "fireflies.fetch",
       userId: job.userId,
@@ -58,8 +56,9 @@ export async function handleFirefliesFetch(job: Job): Promise<void> {
   if (!meetingId) throw new Error("missing provider meeting id");
 
   const provider = new FirefliesProvider({ apiKey });
-  const transcript = await provider.getTranscript(meetingId);
-  const summary = await provider.getSummary(meetingId);
+  const meetings = await provider.listRecentMeetings();
+  const artifact = meetings.find((m) => m.providerMeetingId === meetingId);
+  if (!artifact) throw new Error("meeting not found in Fireflies");
 
   const pool = getPool();
   await pool.query(
@@ -67,7 +66,7 @@ export async function handleFirefliesFetch(job: Job): Promise<void> {
      VALUES ($1, $2, 'fireflies', $3, $4::jsonb, 'fetched', now())
      ON CONFLICT (user_id, provider, provider_meeting_id)
      DO UPDATE SET metadata = EXCLUDED.metadata, ingestion_status = 'fetched', updated_at = now()`,
-    [`${job.userId}:${meetingId}`, job.userId, meetingId, JSON.stringify({ transcript, summary })],
+    [`${job.userId}:${meetingId}`, job.userId, meetingId, JSON.stringify(artifact)],
   );
 
   await enqueue({
@@ -82,13 +81,42 @@ export async function handleFirefliesFetch(job: Job): Promise<void> {
 export async function handleInteractionProcess(job: Job): Promise<void> {
   const meetingId = (job.payload.providerMeetingId as string | undefined) ?? job.resourceRef;
   if (!meetingId) throw new Error("missing provider meeting id");
+  const service = getPipelineService();
+  if (!service) throw new Error("pipeline service not initialized");
+
   const pool = getPool();
-  // Mark the artifact processed and attach the interaction identity. The full
-  // semantic/agent pipeline wiring (canonical interaction → interpreter → …)
-  // lands in a later step; this persists enough for idempotent ingestion.
+  const res = await pool.query(
+    "SELECT metadata FROM meeting_artifacts WHERE user_id = $1 AND provider = 'fireflies' AND provider_meeting_id = $2",
+    [job.userId, meetingId],
+  );
+  const artifact = (res.rows[0] as { metadata: MeetingArtifact } | undefined)?.metadata;
+  if (!artifact) throw new Error("artifact not persisted");
+
+  const outcome = await ingestMeetingArtifact(job.userId, meetingId, {
+    process: service,
+    loadArtifact: async () => artifact,
+    loadCalendarEvents: async (userId) => {
+      const now = Date.now();
+      const events = await listCalendarEvents(userId, new Date(now - 48 * 3600 * 1000), new Date(now + 48 * 3600 * 1000));
+      return events.map((e) => ({
+        providerEventId: e.id,
+        title: e.title,
+        startAt: e.startAt,
+        endAt: e.endAt,
+        organizerEmail: e.organizerEmail,
+        attendees: [],
+        meetingUrl: e.meetingUrl,
+      })) as CalendarEventInput[];
+    },
+    loadHubSpotIdentity: async (): Promise<HubSpotIdentityInput> => {
+      // Best-effort: real contact-by-email resolution is wired in a later step.
+      return { contacts: [], companies: [], deals: [], internalEmails: [] };
+    },
+  });
+
   await pool.query(
-    "UPDATE meeting_artifacts SET ingestion_status = 'processed', interaction_id = $2 WHERE user_id = $1 AND provider = 'fireflies' AND provider_meeting_id = $3",
-    [job.userId, job.id, meetingId],
+    "UPDATE meeting_artifacts SET ingestion_status = $2, interaction_id = $3 WHERE user_id = $1 AND provider = 'fireflies' AND provider_meeting_id = $4",
+    [job.userId, outcome.status === "unresolved_account" ? "unresolved_account" : "processed", job.id, meetingId],
   );
 }
 

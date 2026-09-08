@@ -38,3 +38,4 @@ export * from "./stripe/stripe-commercial-provider.js";
 export * from "./calendar/calendar-provider.js";
 export * from "./fireflies/fireflies-provider.js";
 export * from "./correlation/meeting-correlation.js";
+export * from "./commercial/hubspot-commercial-context.js";

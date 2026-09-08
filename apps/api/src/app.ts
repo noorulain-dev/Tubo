@@ -1,17 +1,21 @@
+import { randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { isAppError, type IntegrationStatus } from "./core.js";
 import { bearerAuth } from "./auth.js";
+import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.js";
+import { getConnectionsStatus, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
+import { buildGmailAuthorizationUrl, exchangeGmailAuthCode } from "./gmail-oauth.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
 export interface CreateAppOptions {
   sampleService: RunService;
   liveService?: RunService;
-  authToken?: string;
   mode?: "sample" | "integration";
   integrations?: IntegrationStatus;
+  gmailOAuth?: { clientId: string; clientSecret: string; redirectUri: string };
   reset?: () => void;
 }
 
@@ -45,16 +49,116 @@ function auditView(run: RunView) {
   return { runId: run.id, mode: run.mode, status: run.status, steps };
 }
 
+function safeReturnTo(value: string | undefined): string {
+  if (value && (value.startsWith("http://") || value.startsWith("https://"))) return value;
+  return "http://localhost:5173";
+}
+
+function parseState(state: string | undefined): { returnTo: string; userId: string | null } {
+  let returnTo = "http://localhost:5173";
+  let userId: string | null = null;
+  try {
+    const parsed = JSON.parse(state ?? "{}") as { returnTo?: unknown; userId?: unknown };
+    if (typeof parsed.returnTo === "string" && (parsed.returnTo.startsWith("http://") || parsed.returnTo.startsWith("https://"))) {
+      returnTo = parsed.returnTo;
+    }
+    if (typeof parsed.userId === "string" && parsed.userId) userId = parsed.userId;
+  } catch {
+    /* ignore malformed state */
+  }
+  return { returnTo, userId };
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
+}
+
+function oauthPage(message: string, returnTo: string, auto: boolean): string {
+  const refresh = auto ? `<meta http-equiv="refresh" content="1;url=${escapeHtml(returnTo)}">` : "";
+  return `<!doctype html><html><head><meta charset="utf-8">${refresh}</head><body style="font-family:sans-serif;padding:32px"><p>${escapeHtml(message)}</p><p><a href="${escapeHtml(returnTo)}">Return to app</a></p></body></html>`;
+}
+
+function currentUser(c: Context): AuthUser | undefined {
+  return c.get("user") as AuthUser | undefined;
+}
+
+/** In open (no-DB) mode there is no session; use a stable anonymous owner. */
+function ownerId(c: Context): string {
+  return currentUser(c)?.id ?? "anonymous";
+}
+
+function bearerToken(c: Context): string {
+  const header = c.req.header("authorization") ?? "";
+  return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
+}
+
 export function createApp(opts: CreateAppOptions) {
   const app = new Hono();
   const all = [opts.sampleService, opts.liveService].filter((s): s is RunService => !!s);
 
-  const serviceForRun = (runId: string) => all.find((s) => s.getRun(runId));
-  const serviceForProposal = (id: string) => all.find((s) => s.getProposal(id));
+  const findRun = async (c: Context, runId: string): Promise<RunView | undefined> => {
+    const userId = ownerId(c);
+    for (const s of all) {
+      const run = await s.getRun(runId, userId);
+      if (run) return run;
+    }
+    return undefined;
+  };
+
+  const findProposalService = async (c: Context, proposalId: string): Promise<RunService | undefined> => {
+    const userId = ownerId(c);
+    for (const s of all) {
+      if (await s.getProposal(proposalId, userId)) return s;
+    }
+    return undefined;
+  };
 
   app.use("*", cors());
-  app.use("*", bearerAuth(opts.authToken));
+  app.use("*", bearerAuth());
 
+  // ------------------------------------------------------------------- auth
+  app.post("/auth/register", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown; password?: unknown } | null;
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!email || !password) return c.json(errorEnvelope("VALIDATION", "email and password are required"), 400);
+    if (password.length < 8) return c.json(errorEnvelope("VALIDATION", "password must be at least 8 characters"), 400);
+    try {
+      const { token, user } = await registerUser(email, password);
+      return c.json({ token, user }, 201);
+    } catch (err) {
+      if ((err as { code?: string }).code === "23505") {
+        return c.json(errorEnvelope("CONFLICT", "an account with that email already exists"), 409);
+      }
+      return handleError(c, err);
+    }
+  });
+
+  app.post("/auth/login", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { email?: unknown; password?: unknown } | null;
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!email || !password) return c.json(errorEnvelope("VALIDATION", "email and password are required"), 400);
+    try {
+      const { token, user } = await loginUser(email, password);
+      return c.json({ token, user });
+    } catch {
+      return c.json(errorEnvelope("AUTHENTICATION", "invalid email or password"), 401);
+    }
+  });
+
+  app.post("/auth/logout", async (c) => {
+    const token = bearerToken(c);
+    if (token) await logout(token).catch(() => undefined);
+    return c.json({ ok: true });
+  });
+
+  app.get("/auth/me", (c) => {
+    const user = currentUser(c);
+    return user ? c.json({ user }) : c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+  });
+
+  // ------------------------------------------------------------------- runs
   app.post("/interactions", async (c) => {
     const body = await c.req.json().catch(() => null);
     const parsed = InteractionInputSchema.safeParse(body);
@@ -66,43 +170,53 @@ export function createApp(opts: CreateAppOptions) {
     if (wantLive && !opts.liveService) {
       return c.json(errorEnvelope("UNAVAILABLE", "Live Mode is not configured on this server"), 400);
     }
+    if (wantLive && !currentUser(c)) {
+      return c.json(errorEnvelope("AUTHENTICATION", "Live Mode requires an authenticated user"), 401);
+    }
     const service = wantLive ? opts.liveService! : opts.sampleService;
+    const userId = ownerId(c);
     try {
-      const run = await service.process({ text: input.text, kind: input.kind, accountId: input.accountId, participants: input.participants, truncated: input.truncated });
+      const run = await service.process(
+        { text: input.text, kind: input.kind, accountId: input.accountId, participants: input.participants, truncated: input.truncated },
+        userId,
+      );
       return c.json(run, 201);
     } catch (err) {
       return handleError(c, err);
     }
   });
 
-  app.get("/runs", (c) => c.json(all.flatMap((s) => s.listRuns())));
+  app.get("/runs", async (c) => {
+    const userId = ownerId(c);
+    const runs = await Promise.all(all.map((s) => s.listRuns(userId)));
+    return c.json(runs.flat());
+  });
 
-  app.get("/runs/:runId", (c) => {
-    const svc = serviceForRun(c.req.param("runId"));
-    const run = svc?.getRun(c.req.param("runId"));
+  app.get("/runs/:runId", async (c) => {
+    const run = await findRun(c, c.req.param("runId"));
     return run ? c.json(run) : c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
   });
 
-  app.get("/runs/:runId/semantic", (c) => {
-    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
+  app.get("/runs/:runId/semantic", async (c) => {
+    const run = await findRun(c, c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, semantic: run.semantic, semanticValid: run.semanticValid, semanticErrors: run.semanticErrors });
   });
 
-  app.get("/runs/:runId/reconciliation", (c) => {
-    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
+  app.get("/runs/:runId/reconciliation", async (c) => {
+    const run = await findRun(c, c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, findings: run.findings, gaps: run.gaps });
   });
 
-  app.get("/runs/:runId/proposals", (c) => {
-    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
+  app.get("/runs/:runId/proposals", async (c) => {
+    const run = await findRun(c, c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json({ mode: run.mode, proposals: run.proposals });
   });
 
-  app.get("/runs/:runId/audit", (c) => {
-    const run = serviceForRun(c.req.param("runId"))?.getRun(c.req.param("runId"));
+  app.get("/runs/:runId/audit", async (c) => {
+    const run = await findRun(c, c.req.param("runId"));
     if (!run) return c.json(errorEnvelope("NOT_FOUND", "run not found"), 404);
     return c.json(auditView(run));
   });
@@ -111,28 +225,31 @@ export function createApp(opts: CreateAppOptions) {
     const body = await c.req.json().catch(() => null);
     const parsed = ProposalEditSchema.safeParse(body);
     if (!parsed.success) return c.json(errorEnvelope("VALIDATION", "invalid edit payload", parsed.error.issues), 400);
-    const svc = serviceForProposal(c.req.param("proposalId"));
-    const view = svc?.editProposal(c.req.param("proposalId"), parsed.data);
+    const svc = await findProposalService(c, c.req.param("proposalId"));
+    if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
+    const view = await svc.editProposal(c.req.param("proposalId"), ownerId(c), parsed.data);
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
-  app.post("/proposals/:proposalId/approve", (c) => {
-    const svc = serviceForProposal(c.req.param("proposalId"));
-    const view = svc?.approveProposal(c.req.param("proposalId"), "user");
+  app.post("/proposals/:proposalId/approve", async (c) => {
+    const svc = await findProposalService(c, c.req.param("proposalId"));
+    if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
+    const view = await svc.approveProposal(c.req.param("proposalId"), ownerId(c), "user");
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
-  app.post("/proposals/:proposalId/reject", (c) => {
-    const svc = serviceForProposal(c.req.param("proposalId"));
-    const view = svc?.rejectProposal(c.req.param("proposalId"), "user");
+  app.post("/proposals/:proposalId/reject", async (c) => {
+    const svc = await findProposalService(c, c.req.param("proposalId"));
+    if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
+    const view = await svc.rejectProposal(c.req.param("proposalId"), ownerId(c), "user");
     return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
   });
 
   app.post("/proposals/:proposalId/execute", async (c) => {
-    const svc = serviceForProposal(c.req.param("proposalId"));
+    const svc = await findProposalService(c, c.req.param("proposalId"));
     if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     try {
-      const view = await svc.executeProposal(c.req.param("proposalId"));
+      const view = await svc.executeProposal(c.req.param("proposalId"), ownerId(c));
       return view ? c.json(view) : c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     } catch (err) {
       return handleError(c, err);
@@ -146,6 +263,83 @@ export function createApp(opts: CreateAppOptions) {
   });
 
   app.get("/health", (c) => c.json({ status: "ok", mode: opts.mode ?? "sample", liveAvailable: !!opts.liveService }));
+
+  // ---------------------------------------------------- customer connections
+  app.get("/connections", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    return c.json(await getConnectionsStatus(user.id));
+  });
+
+  app.post("/connections/stripe", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const body = (await c.req.json().catch(() => null)) as { secretKey?: unknown } | null;
+    const secretKey = typeof body?.secretKey === "string" ? body.secretKey.trim() : "";
+    if (!secretKey) return c.json(errorEnvelope("VALIDATION", "secretKey is required"), 400);
+    await setConnection(user.id, "stripe", secretKey);
+    return c.json(await getConnectionsStatus(user.id));
+  });
+
+  app.post("/connections/hubspot", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const body = (await c.req.json().catch(() => null)) as { accessToken?: unknown } | null;
+    const accessToken = typeof body?.accessToken === "string" ? body.accessToken.trim() : "";
+    if (!accessToken) return c.json(errorEnvelope("VALIDATION", "accessToken is required"), 400);
+    await setConnection(user.id, "hubspot", accessToken);
+    return c.json(await getConnectionsStatus(user.id));
+  });
+
+  app.delete("/connections/:provider", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const provider = c.req.param("provider") as ConnectionProvider;
+    if (!["stripe", "hubspot", "gmail"].includes(provider)) {
+      return c.json(errorEnvelope("VALIDATION", "unknown provider"), 400);
+    }
+    await removeConnection(user.id, provider);
+    return c.json(await getConnectionsStatus(user.id));
+  });
+
+  // --------------------------------------------------------------- Gmail OAuth
+  app.get("/gmail/oauth/url", (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const g = opts.gmailOAuth;
+    if (!g) return c.json(errorEnvelope("UNAVAILABLE", "Gmail OAuth is not configured on this server"), 400);
+    const returnTo = safeReturnTo(c.req.query("returnTo"));
+    const state = JSON.stringify({ nonce: randomUUID(), returnTo, userId: user.id });
+    const url = buildGmailAuthorizationUrl({ clientId: g.clientId, redirectUri: g.redirectUri, state });
+    return c.json({ url });
+  });
+
+  app.get("/gmail/oauth/callback", async (c) => {
+    const g = opts.gmailOAuth;
+    const { returnTo, userId } = parseState(c.req.query("state"));
+    if (!g) return c.html(oauthPage("Gmail OAuth is not configured on this server.", returnTo, false));
+
+    const code = c.req.query("code");
+    const denied = c.req.query("error");
+    if (denied || !code) {
+      return c.html(oauthPage("Authorization was not completed.", returnTo, false));
+    }
+
+    try {
+      const tokens = await exchangeGmailAuthCode({
+        clientId: g.clientId,
+        clientSecret: g.clientSecret,
+        redirectUri: g.redirectUri,
+        code,
+      });
+      if (tokens.refreshToken && userId) {
+        await setConnection(userId, "gmail", tokens.refreshToken);
+      }
+      return c.html(oauthPage("Gmail connected successfully.", returnTo, true));
+    } catch (err) {
+      return c.html(oauthPage(`Failed to connect Gmail: ${err instanceof Error ? err.message : String(err)}`, returnTo, false));
+    }
+  });
 
   app.get("/integrations", (c) =>
     c.json({

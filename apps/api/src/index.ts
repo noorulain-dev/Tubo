@@ -5,6 +5,7 @@ import { integrationStatus, isLiveConfigured, loadConfig } from "./core.js";
 import { createSampleApp } from "./sample.js";
 import { createLiveApp } from "./live.js";
 import { createApp } from "./app.js";
+import { ensureSchema } from "./db.js";
 
 // Load .env from repo root and/or the workspace cwd (whichever runs the server).
 for (const p of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {
@@ -14,7 +15,8 @@ for (const p of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.
 const config = loadConfig();
 
 async function main(): Promise<void> {
-  const sample = createSampleApp({ authToken: config.authToken });
+  await ensureSchema();
+  const sample = createSampleApp();
   let liveService = undefined;
 
   if (isLiveConfigured(config)) {
@@ -29,11 +31,18 @@ async function main(): Promise<void> {
     console.warn("[live] Live Mode unavailable: no LLM API key configured (OPENAI_API_KEY / DEEPSEEK_API_KEY).");
   }
 
+  const redirectUri =
+    config.gmailRedirectUri ?? `http://localhost:${config.port}/gmail/oauth/callback`;
+  const gmailOAuth =
+    config.gmailClientId && config.gmailClientSecret
+      ? { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, redirectUri }
+      : undefined;
+
   const app = createApp({
     sampleService: sample.service,
     liveService,
-    authToken: config.authToken,
     integrations: integrationStatus(config),
+    gmailOAuth,
     reset: sample.reset,
   });
 

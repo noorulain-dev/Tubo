@@ -7,6 +7,7 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
   const [mode, setMode] = useState<"sample" | "live">("sample");
   const [liveAvailable, setLiveAvailable] = useState(false);
   const [healthChecked, setHealthChecked] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
   const [account, setAccount] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -21,7 +22,10 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
         setLiveAvailable(h.liveAvailable);
         setHealthChecked(true);
       })
-      .catch(() => setHealthChecked(true));
+      .catch((e) => {
+        setHealthError(e instanceof Error ? e.message : "could not reach the API server");
+        setHealthChecked(true);
+      });
   }, []);
 
   async function handleAnalyze() {
@@ -64,7 +68,13 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
               Live Mode
             </button>
           </div>
-          {healthChecked && !liveAvailable && (
+          {healthChecked && healthError && (
+            <p className="helper">
+              Could not reach the API server to check Live Mode ({healthError}). Verify the backend is running and that
+              AUTH_TOKEN and VITE_AUTH_TOKEN match.
+            </p>
+          )}
+          {healthChecked && !healthError && !liveAvailable && (
             <p className="helper">Live Mode is unavailable — the server has no live LLM/integration configured. Running Sample Mode only.</p>
           )}
         </div>

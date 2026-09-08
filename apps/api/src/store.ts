@@ -30,13 +30,53 @@ export interface StoredRun {
   error?: string;
 }
 
-export interface InMemoryStore {
-  runs: Map<string, StoredRun>;
-  proposals: Map<string, { proposal: StoredProposal; runId: string }>;
+/**
+ * Persistence boundary for runs and proposals, scoped to an owning user.
+ * Implementations must enforce that every object is attributable to `userId`
+ * and that reads are ownership-checked by the caller (or by the store).
+ */
+export interface RunStore {
+  saveRun(run: StoredRun, userId: string): Promise<void>;
+  getRun(runId: string): Promise<{ run: StoredRun; userId: string } | null>;
+  listRuns(userId: string): Promise<StoredRun[]>;
+  saveProposal(proposal: StoredProposal, runId: string, userId: string): Promise<void>;
+  getProposal(proposalId: string): Promise<{ proposal: StoredProposal; runId: string; userId: string } | null>;
 }
 
-export function createStore(): InMemoryStore {
-  return { runs: new Map(), proposals: new Map() };
+interface RunRecord {
+  run: StoredRun;
+  userId: string;
+}
+interface ProposalRecord {
+  proposal: StoredProposal;
+  runId: string;
+  userId: string;
+}
+
+/** In-memory RunStore for sample/test mode. State is lost on process exit. */
+export class InMemoryRunStore implements RunStore {
+  private readonly runs = new Map<string, RunRecord>();
+  private readonly proposals = new Map<string, ProposalRecord>();
+
+  async saveRun(run: StoredRun, userId: string): Promise<void> {
+    this.runs.set(run.id, { run, userId });
+  }
+
+  async getRun(runId: string): Promise<RunRecord | null> {
+    return this.runs.get(runId) ?? null;
+  }
+
+  async listRuns(userId: string): Promise<StoredRun[]> {
+    return [...this.runs.values()].filter((r) => r.userId === userId).map((r) => r.run);
+  }
+
+  async saveProposal(proposal: StoredProposal, runId: string, userId: string): Promise<void> {
+    this.proposals.set(proposal.id, { proposal, runId, userId });
+  }
+
+  async getProposal(proposalId: string): Promise<ProposalRecord | null> {
+    return this.proposals.get(proposalId) ?? null;
+  }
 }
 
 export function toProposalView(p: StoredProposal): ProposalView {

@@ -27,6 +27,7 @@ const ConfigSchema = z.object({
   gmailClientId: z.string().min(1).optional(),
   gmailClientSecret: z.string().min(1).optional(),
   gmailRefreshToken: z.string().min(1).optional(),
+  gmailRedirectUri: z.string().url().optional(),
 
   // Server
   authToken: z.string().min(1).optional(),
@@ -57,6 +58,7 @@ export function loadConfig(
     gmailClientId: env.GMAIL_CLIENT_ID,
     gmailClientSecret: env.GMAIL_CLIENT_SECRET,
     gmailRefreshToken: env.GMAIL_REFRESH_TOKEN,
+    gmailRedirectUri: env.GMAIL_REDIRECT_URI,
     authToken: env.AUTH_TOKEN,
     port: env.PORT,
     mode: env.MODE,

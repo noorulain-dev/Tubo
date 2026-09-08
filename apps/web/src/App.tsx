@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api, type AuditView } from "./api";
+import { useEffect, useState } from "react";
+import { api, clearToken, getToken, type AuditView, type AuthUser } from "./api";
 import { Button, Sidebar, Spinner } from "./components";
 import { useRun } from "./hooks";
 import type { RunView } from "./types";
@@ -8,6 +8,7 @@ import { ReviewScreen } from "./screens/ReviewScreen";
 import { RunsScreen } from "./screens/RunsScreen";
 import { EvaluationScreen } from "./screens/EvaluationScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { LoginScreen } from "./screens/LoginScreen";
 
 export default function App() {
   const [view, setView] = useState("process");
@@ -15,6 +16,21 @@ export default function App() {
   const { run, setRun, loading, error } = useRun(runId);
   const [auditOpen, setAuditOpen] = useState(false);
   const [audit, setAudit] = useState<AuditView | null>(null);
+
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    if (!getToken()) {
+      setAuthChecked(true);
+      return;
+    }
+    api
+      .me()
+      .then(({ user: u }) => setUser(u))
+      .catch(() => clearToken())
+      .finally(() => setAuthChecked(true));
+  }, []);
 
   function navigate(v: string) {
     setView(v);
@@ -30,6 +46,26 @@ export default function App() {
   async function openAudit() {
     setAuditOpen(true);
     if (runId) setAudit(await api.getAudit(runId));
+  }
+
+  async function handleLogout() {
+    await api.logout();
+    setUser(null);
+    setRun(null);
+    setRunId(null);
+    navigate("process");
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="loading-block" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <Spinner /> Loading…
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen onAuthed={setUser} />;
   }
 
   let content;
@@ -52,7 +88,13 @@ export default function App() {
   return (
     <div className="shell">
       <Sidebar active={run ? "process" : view} onNavigate={navigate} />
-      <main className="main">{content}</main>
+      <main className="main">
+        <div className="user-bar">
+          <span className="helper">{user.email}</span>
+          <Button variant="ghost" onClick={() => void handleLogout()}>Log out</Button>
+        </div>
+        {content}
+      </main>
 
       {auditOpen && (
         <>

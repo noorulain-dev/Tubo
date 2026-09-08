@@ -11,6 +11,10 @@ import { listCalendarEvents, syncCalendar } from "./calendar-sync.js";
 import { getChannelUser, registerWatch } from "./calendar-watch.js";
 import { enqueue } from "./jobs.js";
 import { appendAccountEvent, getSnapshot, listAccountEvents, listAccounts } from "./account-intelligence.js";
+import { Investigator, listInvestigations, saveInvestigation } from "./investigation.js";
+import { getFinding, listFindings } from "./risk-scanner.js";
+import { applyDecision, approveAllEligible, buildExecutionPlan, getPlan, listPlans, savePlan, type ExecutionPlan } from "./execution-plans.js";
+import { getAccountDetail, listAccountRows, markReviewed } from "./command-center.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
@@ -224,6 +228,130 @@ export function createApp(opts: CreateAppOptions) {
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
     const events = await listAccountEvents(user.id, c.req.param("accountId"));
     return c.json({ events });
+  });
+
+  app.get("/accounts/:accountId/findings", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const findings = await listFindings(user.id, c.req.param("accountId"));
+    return c.json({ findings });
+  });
+
+  app.post("/findings/:findingId/investigate", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const findingId = c.req.param("findingId");
+    const finding = await getFinding(user.id, findingId);
+    if (!finding) return c.json(errorEnvelope("NOT_FOUND", "finding not found"), 404);
+
+    const service = opts.liveService ?? opts.sampleService;
+    const readContext = await service.resolveReadContext(user.id);
+    const investigator = new Investigator(readContext);
+    const result = await investigator.investigate(finding, finding.accountId);
+    await saveInvestigation(user.id, result).catch(() => undefined);
+    return c.json(result);
+  });
+
+  app.get("/findings/:findingId/investigations", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const investigations = await listInvestigations(user.id, c.req.param("findingId"));
+    return c.json({ investigations });
+  });
+
+  app.post("/execution-plans", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const body = (await c.req.json().catch(() => null)) as {
+      accountId?: string;
+      findingIds?: string[];
+      objective?: string;
+      summary?: string;
+      evidence?: string[];
+      actions?: { action: unknown; dependsOn?: string[] }[];
+    } | null;
+    if (!body?.accountId || !body?.objective || !Array.isArray(body.actions)) {
+      return c.json(errorEnvelope("VALIDATION", "accountId, objective, and actions are required"), 400);
+    }
+
+    const service = opts.liveService ?? opts.sampleService;
+    const readContext = await service.resolveReadContext(user.id);
+    const policyContext = {
+      commercialState: await readContext.commercial.getCommercialState(body.accountId).catch(() => null),
+      openDeal: await readContext.crm.getOpenDeal(body.accountId).catch(() => null),
+    };
+
+    const plan = buildExecutionPlan({
+      accountId: body.accountId,
+      findingIds: body.findingIds ?? [],
+      objective: body.objective,
+      summary: body.summary,
+      evidence: body.evidence,
+      actions: body.actions.map((a) => ({ action: a.action as never, dependsOn: a.dependsOn })),
+      policyContext,
+    });
+    await savePlan(user.id, plan);
+    return c.json(plan, 201);
+  });
+
+  app.get("/execution-plans", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const accountId = c.req.query("accountId");
+    if (!accountId) return c.json(errorEnvelope("VALIDATION", "accountId query is required"), 400);
+    return c.json({ plans: await listPlans(user.id, accountId) });
+  });
+
+  app.get("/execution-plans/:planId", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const plan = await getPlan(user.id, c.req.param("planId"));
+    return plan ? c.json(plan) : c.json(errorEnvelope("NOT_FOUND", "plan not found"), 404);
+  });
+
+  app.post("/execution-plans/:planId/actions/:actionId/decision", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const plan = await getPlan(user.id, c.req.param("planId"));
+    if (!plan) return c.json(errorEnvelope("NOT_FOUND", "plan not found"), 404);
+    const body = (await c.req.json().catch(() => null)) as { decision?: "approve" | "reject" | "edit"; payload?: Record<string, unknown> } | null;
+    if (!body?.decision) return c.json(errorEnvelope("VALIDATION", "decision is required"), 400);
+    const next = applyDecision(plan, c.req.param("actionId"), body.decision, { payload: body.payload, reviewer: user.email });
+    await savePlan(user.id, next);
+    return c.json(next);
+  });
+
+  app.post("/execution-plans/:planId/approve-all", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const plan = await getPlan(user.id, c.req.param("planId"));
+    if (!plan) return c.json(errorEnvelope("NOT_FOUND", "plan not found"), 404);
+    const next = approveAllEligible(plan, user.email);
+    await savePlan(user.id, next);
+    return c.json(next);
+  });
+
+  app.get("/command-center", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const limit = Number(c.req.query("limit") ?? 50);
+    const offset = Number(c.req.query("offset") ?? 0);
+    const { rows, total } = await listAccountRows(user.id, { limit, offset });
+    return c.json({ rows, total, limit, offset });
+  });
+
+  app.get("/command-center/accounts/:accountId", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const detail = await getAccountDetail(user.id, c.req.param("accountId"));
+    return detail ? c.json(detail) : c.json(errorEnvelope("NOT_FOUND", "account not found"), 404);
+  });
+
+  app.post("/command-center/accounts/:accountId/reviewed", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const result = await markReviewed(user.id, c.req.param("accountId"));
+    return c.json(result);
   });
 
   app.get("/runs", async (c) => {

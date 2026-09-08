@@ -18,6 +18,8 @@
     "worker": "tsx src/worker.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "assessment:hubspot:setup": "tsx src/assessment-hubspot-setup.ts",
+    "assessment:prepare": "tsx src/assessment-prepare.ts",
+    "assessment:cleanup": "tsx src/assessment-cleanup.ts",
     "live:check": "tsx src/live-check.ts",
     "live:test-writes": "tsx src/live-test-writes.ts"
   },

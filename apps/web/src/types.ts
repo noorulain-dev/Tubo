@@ -161,3 +161,160 @@ export interface InteractionInput {
 export interface ErrorEnvelope {
   error: { code: string; message: string; details?: unknown };
 }
+
+// ---------------------------------------------------------------------------
+// Command Center / Account Intelligence (Step 57–59)
+// ---------------------------------------------------------------------------
+
+export type Severity = "low" | "medium" | "high" | "critical";
+
+export interface TopFinding {
+  type: string;
+  title: string;
+  severity: Severity;
+}
+
+export interface AccountRow {
+  accountId: string;
+  identity: { name?: string; companyId?: string; contactId?: string; dealId?: string } | null;
+  stage: string | null;
+  commercial: string | null;
+  highestSeverity: Severity | null;
+  topFinding: TopFinding | null;
+  openCommitments: number;
+  openQuestions: number;
+  blockerCount: number;
+  blocked: boolean;
+  lastMeaningfulEventAt: string | null;
+  pendingCount: number;
+  lastReviewedAt: string | null;
+  updatedAt: string | null;
+  isAssessment: boolean;
+}
+
+export interface Finding {
+  findingId: string;
+  accountId: string;
+  type: string;
+  severity: Severity;
+  title: string;
+  description: string;
+  evidence: string[];
+  sourceReferences: string[];
+  signals: { signal: string; value: string | number }[];
+  needsInvestigation: boolean;
+  status: "open" | "resolved";
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface CommitmentState {
+  id: string;
+  type: string;
+  description: string;
+  owner: string | null;
+  ownerResolution: string | null;
+  dueDate: string | null;
+  dueDateText: string | null;
+  dueDateResolution: string | null;
+  condition: string | null;
+  status: string;
+  relatedTaskIds: string[];
+  relatedEmailIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuestionState {
+  id: string;
+  question: string;
+  status: string;
+  answer: { text: string; source: string; reference: string | null } | null;
+  askedAt: string;
+  answeredAt: string | null;
+}
+
+export interface ChangeSet {
+  stage: { before: string | null; after: string | null } | null;
+  commercial: { before: string | null; after: string | null } | null;
+  newCommitments: string[];
+  resolvedCommitments: string[];
+  newQuestions: string[];
+  answeredQuestions: string[];
+  newBlockers: string[];
+  resolvedBlockers: string[];
+  eventsSince: number;
+}
+
+export interface AccountSnapshot {
+  identity: { name?: string; companyId?: string; contactId?: string; dealId?: string } | null;
+  stage: string | null;
+  commercial: { status?: string; provenance?: string | null } | null;
+  decisions: unknown[];
+  commitments: CommitmentState[];
+  questions: QuestionState[];
+  blockers: string[];
+  nextSteps: string[];
+  risks: string[];
+  recentEvents: { eventType: string; occurredAt: string }[];
+  executionGaps: string[];
+  unavailableSources: string[];
+  lastReviewed: string | null;
+  lastSourceRefresh: string | null;
+  version: number;
+}
+
+export interface InvestigationTraceStep {
+  tool: string;
+  reasonCategory: string;
+  source: string | null;
+  status: "success" | "missing_context" | "error" | "cache";
+  factualResult: string;
+  evidenceReference: string | null;
+  latencyMs: number;
+}
+
+export type InvestigationOutcome = "confirmed" | "rejected" | "ambiguous" | "missing_context";
+
+export interface InvestigationResult {
+  findingId: string;
+  outcome: InvestigationOutcome;
+  trace: InvestigationTraceStep[];
+  budget: { used: number; max: number };
+  startedAt: string;
+  finishedAt: string;
+}
+
+export interface ExecutionPlanAction {
+  actionId: string;
+  action: ProposedAction;
+  policy: PolicyEvaluation;
+  status: string;
+  dependsOn: string[];
+  dependencyBlocked: boolean;
+  approval?: Approval;
+  execution?: ExecutionResult;
+}
+
+export interface ExecutionPlan {
+  planId: string;
+  accountId: string;
+  findingIds: string[];
+  objective: string;
+  summary: string;
+  evidence: string[];
+  actions: ExecutionPlanAction[];
+  createdAt: string;
+}
+
+export interface AccountDetail {
+  accountId: string;
+  snapshot: AccountSnapshot;
+  changes: ChangeSet;
+  findings: Finding[];
+  latestInvestigation: InvestigationResult | null;
+  plans: ExecutionPlan[];
+  recentEvents: { eventId: string; eventType: string; occurredAt: string; source: string | null }[];
+  lastReviewedAt: string | null;
+}

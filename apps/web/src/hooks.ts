@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
-import type { InteractionInput, ProposalView, RunView } from "./types";
+import type { AccountDetail, AccountRow, InteractionInput, ProposalView, RunView } from "./types";
 
 export function useRuns() {
   const [runs, setRuns] = useState<RunView[]>([]);
@@ -84,6 +84,68 @@ export function useRunMutations(runId: string, onUpdated: (run: RunView) => void
   const execute = (id: string) => mutate(() => api.executeProposal(id));
 
   return { approve, reject, edit, execute, pending, error };
+}
+
+function useFocusRefresh(refresh: () => void) {
+  useEffect(() => {
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refresh]);
+}
+
+export function useCommandCenter() {
+  const [rows, setRows] = useState<AccountRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.getCommandCenter();
+      setRows(res.rows);
+      setTotal(res.total);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load command center");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  useFocusRefresh(refresh);
+
+  return { rows, total, loading, error, refresh };
+}
+
+export function useAccountDetail(accountId: string | null) {
+  const [detail, setDetail] = useState<AccountDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setDetail(await api.getAccountDetail(accountId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load account");
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+  useFocusRefresh(refresh);
+
+  return { detail, loading, error, refresh };
 }
 
 export type { InteractionInput, ProposalView, RunView };

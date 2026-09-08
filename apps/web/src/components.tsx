@@ -56,6 +56,16 @@ export function RiskBadge({ value }: { value: RiskLevel }) {
   return <span className={`badge ${map[value]}`}>{value} risk</span>;
 }
 
+export function SeverityBadge({ value }: { value: string | null }) {
+  if (!value) return <span className="badge badge-muted">none</span>;
+  const map: Record<string, string> = { low: "badge-green", medium: "badge-amber", high: "badge-orange", critical: "badge-red" };
+  return <span className={`badge ${map[value] ?? "badge-muted"}`}>{value}</span>;
+}
+
+export function TestDataBadge() {
+  return <span className="badge badge-muted" title="Synthetic [ASSESSMENT] record">Test data</span>;
+}
+
 export function StatusPill({ value }: { value: RunStatus }) {
   const label: Record<RunStatus, string> = {
     created: "Created",
@@ -95,7 +105,9 @@ export function EmptyState(props: { title: string; hint?: string }) {
 
 export function Sidebar(props: { active: string; onNavigate: (view: string) => void }) {
   const items: { key: string; label: string; group: string }[] = [
-    { key: "process", label: "Process", group: "Overview" },
+    { key: "command-center", label: "Command Center", group: "Overview" },
+    { key: "accounts", label: "Accounts", group: "Overview" },
+    { key: "process", label: "Process Interaction", group: "Overview" },
     { key: "runs", label: "Runs", group: "Overview" },
     { key: "evaluation", label: "Evaluation", group: "Insights" },
     { key: "settings", label: "Settings", group: "System" },

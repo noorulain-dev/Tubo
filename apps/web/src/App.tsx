@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, clearToken, getToken, type AuditView, type AuthUser } from "./api";
+import { api, clearToken, getToken, setOnUnauthorized, type AuditView, type AuthUser } from "./api";
 import { Button, Sidebar, Spinner } from "./components";
 import { useRun } from "./hooks";
 import type { RunView } from "./types";
@@ -10,9 +10,13 @@ import { EvaluationScreen } from "./screens/EvaluationScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { CalendarDrawer } from "./screens/CalendarDrawer";
+import { CommandCenterScreen } from "./screens/CommandCenterScreen";
+import { AccountsScreen } from "./screens/AccountsScreen";
+import { AccountScreen } from "./screens/AccountScreen";
 
 export default function App() {
-  const [view, setView] = useState("process");
+  const [view, setView] = useState("command-center");
+  const [accountId, setAccountId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const { run, setRun, loading, error } = useRun(runId);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -34,10 +38,29 @@ export default function App() {
       .finally(() => setAuthChecked(true));
   }, []);
 
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      setUser(null);
+      setRun(null);
+      setRunId(null);
+      setAccountId(null);
+      setView("command-center");
+    });
+    return () => setOnUnauthorized(null);
+  }, []);
+
   function navigate(v: string) {
     setView(v);
+    setAccountId(null);
     setRunId(null);
     setRun(null);
+  }
+
+  function openAccount(id: string) {
+    setAccountId(id);
+    setRunId(null);
+    setRun(null);
+    setView("account");
   }
 
   function onAnalyzed(r: RunView) {
@@ -77,6 +100,12 @@ export default function App() {
     content = <div className="loading-block"><Spinner /> Loading run…</div>;
   } else if (error) {
     content = <div className="alert alert-error">{error}</div>;
+  } else if (view === "command-center") {
+    content = <CommandCenterScreen onOpenAccount={openAccount} />;
+  } else if (view === "accounts") {
+    content = <AccountsScreen onOpenAccount={openAccount} />;
+  } else if (view === "account" && accountId) {
+    content = <AccountScreen accountId={accountId} />;
   } else if (view === "runs") {
     content = <RunsScreen onOpen={(id) => setRunId(id)} />;
   } else if (view === "evaluation") {
@@ -89,7 +118,7 @@ export default function App() {
 
   return (
     <div className="shell">
-      <Sidebar active={run ? "process" : view} onNavigate={navigate} />
+      <Sidebar active={run ? "process" : view === "account" ? "accounts" : view} onNavigate={navigate} />
       <main className="main">
         <div className="user-bar">
           <span className="helper">{user.email}</span>

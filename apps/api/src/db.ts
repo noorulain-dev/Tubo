@@ -213,5 +213,34 @@ export async function ensureSchema(): Promise<void> {
       resolved_at         timestamptz
     );
     CREATE INDEX IF NOT EXISTS idx_risk_findings_user_account ON risk_findings(user_id, account_id, status);
+
+    CREATE TABLE IF NOT EXISTS finding_investigations (
+      id         bigserial PRIMARY KEY,
+      user_id    text NOT NULL,
+      finding_id text NOT NULL,
+      outcome    text NOT NULL,
+      trace      jsonb NOT NULL DEFAULT '[]'::jsonb,
+      started_at timestamptz NOT NULL DEFAULT now(),
+      finished_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_finding_investigations_finding ON finding_investigations(finding_id);
+
+    CREATE TABLE IF NOT EXISTS execution_plans (
+      plan_id    text PRIMARY KEY,
+      user_id    text NOT NULL,
+      account_id text NOT NULL,
+      plan       jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_execution_plans_user ON execution_plans(user_id, account_id);
+
+    CREATE TABLE IF NOT EXISTS review_state (
+      user_id     text NOT NULL,
+      account_id  text NOT NULL,
+      reviewed_at timestamptz NOT NULL DEFAULT now(),
+      snapshot    jsonb NOT NULL DEFAULT '{}'::jsonb,
+      PRIMARY KEY (user_id, account_id)
+    );
   `);
 }

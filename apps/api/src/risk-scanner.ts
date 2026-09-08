@@ -347,6 +347,13 @@ export async function listFindings(userId: string, accountId: string): Promise<F
   return (res.rows as Record<string, unknown>[]).map(rowToFinding);
 }
 
+export async function getFinding(userId: string, findingId: string): Promise<Finding | undefined> {
+  const pool = getPool();
+  const res = await pool.query("SELECT * FROM risk_findings WHERE user_id = $1 AND finding_id = $2", [userId, findingId]);
+  const row = res.rows[0] as Record<string, unknown> | undefined;
+  return row ? rowToFinding(row) : undefined;
+}
+
 export async function persistFindings(userId: string, accountId: string, findings: Finding[]): Promise<void> {
   const pool = getPool();
   for (const f of findings) {

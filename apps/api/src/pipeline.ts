@@ -114,6 +114,12 @@ function toOperationalContext(toolCalls: AgentToolCall[]): OperationalContext {
 export class RunService {
   constructor(private readonly deps: RunServiceDeps) {}
 
+  /** Resolve the read-only operational context for a user (used by the investigation agent). */
+  async resolveReadContext(userId: string): Promise<AgentReadContext> {
+    const { readContext } = await this.deps.resolver.resolve(userId);
+    return readContext;
+  }
+
   async process(input: InteractionInput, userId: string): Promise<RunView> {
     const now = this.deps.now ?? (() => Date.now());
     const runId = `run_${now()}_${Math.random().toString(36).slice(2, 8)}`;

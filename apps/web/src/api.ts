@@ -1,4 +1,14 @@
-import type { ErrorEnvelope, InteractionInput, ProposalView, RunView } from "./types";
+import type {
+  AccountDetail,
+  AccountRow,
+  ErrorEnvelope,
+  ExecutionPlan,
+  Finding,
+  InteractionInput,
+  InvestigationResult,
+  ProposalView,
+  RunView,
+} from "./types";
 
 // The backend is the single source of truth. The frontend only talks to it via
 // this typed client and never contacts HubSpot/Gmail directly.
@@ -18,6 +28,13 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+/** Register a handler invoked when the session expires (401/403) on any call. */
+export function setOnUnauthorized(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -29,6 +46,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      clearToken();
+      onUnauthorized?.();
+    }
     const body = (await res.json().catch(() => null)) as ErrorEnvelope | null;
     throw new ApiError(body?.error?.code ?? "HTTP_ERROR", body?.error?.message ?? `Request failed (${res.status})`, res.status);
   }
@@ -180,5 +201,32 @@ export const api = {
   },
   executeProposal(id: string): Promise<ProposalView> {
     return request<ProposalView>(`/proposals/${id}/execute`, { method: "POST" });
+  },
+  getCommandCenter(limit = 50, offset = 0): Promise<{ rows: AccountRow[]; total: number; limit: number; offset: number }> {
+    return request<{ rows: AccountRow[]; total: number; limit: number; offset: number }>(`/command-center?limit=${limit}&offset=${offset}`);
+  },
+  getAccountDetail(accountId: string): Promise<AccountDetail> {
+    return request<AccountDetail>(`/command-center/accounts/${encodeURIComponent(accountId)}`);
+  },
+  markReviewed(accountId: string): Promise<{ reviewedAt: string; version: number }> {
+    return request<{ reviewedAt: string; version: number }>(`/command-center/accounts/${encodeURIComponent(accountId)}/reviewed`, { method: "POST" });
+  },
+  listFindings(accountId: string): Promise<{ findings: Finding[] }> {
+    return request<{ findings: Finding[] }>(`/accounts/${encodeURIComponent(accountId)}/findings`);
+  },
+  investigateFinding(findingId: string): Promise<InvestigationResult> {
+    return request<InvestigationResult>(`/findings/${findingId}/investigate`, { method: "POST" });
+  },
+  listInvestigations(findingId: string): Promise<{ investigations: InvestigationResult[] }> {
+    return request<{ investigations: InvestigationResult[] }>(`/findings/${findingId}/investigations`);
+  },
+  listPlans(accountId: string): Promise<{ plans: ExecutionPlan[] }> {
+    return request<{ plans: ExecutionPlan[] }>(`/execution-plans?accountId=${encodeURIComponent(accountId)}`);
+  },
+  applyPlanDecision(planId: string, actionId: string, decision: "approve" | "reject" | "edit", payload?: Record<string, unknown>): Promise<ExecutionPlan> {
+    return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/decision`, { method: "POST", body: JSON.stringify({ decision, payload }) });
+  },
+  approveAllPlan(planId: string): Promise<ExecutionPlan> {
+    return request<ExecutionPlan>(`/execution-plans/${planId}/approve-all`, { method: "POST" });
   },
 };

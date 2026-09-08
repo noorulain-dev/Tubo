@@ -146,6 +146,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .badge-red { background: var(--red-soft); color: var(--red); }
 .badge-blue { background: var(--blue-soft); color: var(--blue); }
 .badge-yellow { background: var(--yellow-soft); color: var(--yellow); }
+.badge-muted { background: var(--surface-2); color: var(--text-3); border: 1px solid var(--border); }
 
 .pill {
   display: inline-block; padding: 3px 10px; border-radius: 999px;
@@ -158,6 +159,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .pill-failed { background: var(--red-soft); color: var(--red); border-color: #f0c9c4; }
 .pill-sample { background: var(--blue-soft); color: var(--blue); border-color: #cfdfec; }
 .pill-live { background: var(--green-soft); color: var(--green); border-color: var(--green-border); }
+.pill-created { background: var(--blue-soft); color: var(--blue); border-color: #cfdfec; }
 
 /* Forms */
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
@@ -232,6 +234,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .alert { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
 .alert-error { background: var(--red-soft); color: var(--red); border: 1px solid #f0c9c4; }
 .alert-info { background: var(--blue-soft); color: var(--blue); border: 1px solid #cfdfec; }
+.alert-warn { background: var(--amber-soft); color: var(--amber); border: 1px solid #ecd9b8; }
 
 /* Audit drawer */
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(16,24,40,0.35); z-index: 40; }
@@ -290,3 +293,16 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
+
+/* Command Center / Account (Step 59) */
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.list li:last-child { border-bottom: none; }
+.finding-main { flex: 1; min-width: 0; }
+.finding-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+.finding-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.investigation-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.plan { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.plan:last-child { border-bottom: none; }
+.plan-head { font-size: 13.5px; margin-bottom: 6px; }

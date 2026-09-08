@@ -74,13 +74,14 @@ export interface IntegrationsView {
   live: boolean;
 }
 
-export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar";
+export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar" | "fireflies";
 
 export interface ConnectionStatus {
   stripe: { connected: boolean; needsReauth: boolean };
   hubspot: { connected: boolean; needsReauth: boolean };
   gmail: { connected: boolean; needsReauth: boolean };
   calendar: { connected: boolean; needsReauth: boolean };
+  fireflies: { connected: boolean; needsReauth: boolean };
 }
 
 export const api = {
@@ -120,6 +121,22 @@ export const api = {
   },
   syncCalendar(): Promise<{ synced: number; window: { start: string; end: string } }> {
     return request<{ synced: number; window: { start: string; end: string } }>(`/integrations/google-calendar/sync`, { method: "POST" });
+  },
+  connectFireflies(apiKey: string): Promise<ConnectionStatus> {
+    return request<ConnectionStatus>("/connections/fireflies", { method: "POST", body: JSON.stringify({ apiKey }) });
+  },
+  testFireflies(): Promise<{
+    ok: boolean;
+    message?: string;
+    meetingCount?: number;
+    recent?: { title: string | null; startedAt: string | null }[];
+  }> {
+    return request<{
+      ok: boolean;
+      message?: string;
+      meetingCount?: number;
+      recent?: { title: string | null; startedAt: string | null }[];
+    }>("/connections/fireflies/test", { method: "POST" });
   },
   getConnections(): Promise<ConnectionStatus> {
     return request<ConnectionStatus>("/connections", { method: "GET" });

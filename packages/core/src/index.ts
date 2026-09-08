@@ -36,3 +36,4 @@ export * from "./executor/executor.js";
 export * from "./llm/openai-provider.js";
 export * from "./stripe/stripe-commercial-provider.js";
 export * from "./calendar/calendar-provider.js";
+export * from "./fireflies/fireflies-provider.js";

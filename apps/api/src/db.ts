@@ -116,5 +116,20 @@ export async function ensureSchema(): Promise<void> {
       UNIQUE (user_id, provider, calendar_id, provider_event_id)
     );
     CREATE INDEX IF NOT EXISTS idx_calendar_events_user ON calendar_events(user_id);
+
+    CREATE TABLE IF NOT EXISTS meeting_artifacts (
+      id                 text PRIMARY KEY,
+      user_id            text NOT NULL,
+      provider           text NOT NULL,
+      provider_meeting_id text NOT NULL,
+      provider_updated_at timestamptz,
+      metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
+      ingestion_status   text NOT NULL DEFAULT 'pending',
+      interaction_id     text,
+      created_at         timestamptz NOT NULL DEFAULT now(),
+      updated_at         timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (user_id, provider, provider_meeting_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_meeting_artifacts_user ON meeting_artifacts(user_id);
   `);
 }

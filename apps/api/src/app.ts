@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { isAppError, type IntegrationStatus } from "./core.js";
+import { FirefliesProvider, isAppError, type IntegrationStatus } from "./core.js";
 import { bearerAuth } from "./auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.js";
-import { getConnectionsStatus, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
+import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "./gmail-oauth.js";
 import { syncCalendar } from "./calendar-sync.js";
 import type { RunService } from "./pipeline.js";
@@ -292,11 +292,37 @@ export function createApp(opts: CreateAppOptions) {
     return c.json(await getConnectionsStatus(user.id));
   });
 
+  app.post("/connections/fireflies", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const body = (await c.req.json().catch(() => null)) as { apiKey?: unknown } | null;
+    const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
+    if (!apiKey) return c.json(errorEnvelope("VALIDATION", "apiKey is required"), 400);
+    await setConnection(user.id, "fireflies", apiKey);
+    return c.json(await getConnectionsStatus(user.id));
+  });
+
+  app.post("/connections/fireflies/test", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const apiKey = await getFirefliesApiKey(user.id);
+    if (!apiKey) return c.json(errorEnvelope("NOT_FOUND", "Fireflies is not connected"), 400);
+    const provider = new FirefliesProvider({ apiKey });
+    const result = await provider.validateConnection();
+    if (!result.ok) return c.json(result);
+    const meetings = await provider.listRecentMeetings();
+    return c.json({
+      ok: true,
+      meetingCount: meetings.length,
+      recent: meetings.slice(0, 5).map((m) => ({ title: m.title, startedAt: m.startedAt })),
+    });
+  });
+
   app.delete("/connections/:provider", async (c) => {
     const user = currentUser(c);
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
     const provider = c.req.param("provider") as ConnectionProvider;
-    if (!["stripe", "hubspot", "gmail", "google-calendar"].includes(provider)) {
+    if (!["stripe", "hubspot", "gmail", "google-calendar", "fireflies"].includes(provider)) {
       return c.json(errorEnvelope("VALIDATION", "unknown provider"), 400);
     }
     await removeConnection(user.id, provider);

@@ -2,15 +2,25 @@
 
 /* Legacy accent overrides — replace old green fills with the new lime/neutral scheme. */
 .brand-mark {
-  background: var(--text);
-  color: var(--bg);
+  background: transparent;
+  overflow: hidden;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
 }
 .segmented button.active {
   background: var(--accent);
   color: var(--accent-ink);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #a9eb23;
+  background: #1f6b9e;
 }
 
 /* Buttons */

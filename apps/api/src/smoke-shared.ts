@@ -7,6 +7,7 @@ export interface SmokeCredentials {
   hubspotToken?: string;
   gmailRefreshToken?: string;
   calendarRefreshToken?: string;
+  firefliesApiKey?: string;
 }
 
 export function initSmokeEnv(): void {
@@ -43,6 +44,7 @@ export async function resolveSmokeCredentials(): Promise<SmokeCredentials> {
     if (row.provider === "hubspot") creds.hubspotToken = row.secret;
     if (row.provider === "gmail") creds.gmailRefreshToken = row.secret;
     if (row.provider === "google-calendar") creds.calendarRefreshToken = row.secret;
+    if (row.provider === "fireflies") creds.firefliesApiKey = row.secret;
   }
   return creds;
 }

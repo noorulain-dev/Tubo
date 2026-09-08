@@ -15,6 +15,8 @@ export function SettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [stripeKey, setStripeKey] = useState("");
   const [hubspotToken, setHubspotToken] = useState("");
+  const [firefliesKey, setFirefliesKey] = useState("");
+  const [firefliesInfo, setFirefliesInfo] = useState<{ meetingCount?: number; recent?: { title: string | null; startedAt: string | null }[] } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,7 +84,38 @@ export function SettingsScreen() {
     }
   }
 
-  async function disconnect(provider: "stripe" | "hubspot" | "gmail" | "google-calendar") {
+  async function connectFireflies() {
+    setError(null);
+    setBusy("fireflies");
+    try {
+      setConnections(await api.connectFireflies(firefliesKey));
+      setFirefliesKey("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to connect Fireflies");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function testFireflies() {
+    setError(null);
+    setBusy("fireflies");
+    try {
+      const r = await api.testFireflies();
+      if (!r.ok) {
+        setError(r.message ?? "Fireflies connection is invalid");
+        setFirefliesInfo(null);
+      } else {
+        setFirefliesInfo(r);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to test Fireflies");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function disconnect(provider: "stripe" | "hubspot" | "gmail" | "google-calendar" | "fireflies") {
     setError(null);
     setBusy(provider);
     try {
@@ -99,6 +132,7 @@ export function SettingsScreen() {
   const gmail = connections?.gmail.connected ?? false;
   const calendar = connections?.calendar.connected ?? false;
   const calendarNeedsReauth = connections?.calendar.needsReauth ?? false;
+  const fireflies = connections?.fireflies.connected ?? false;
 
   return (
     <>
@@ -217,6 +251,61 @@ export function SettingsScreen() {
               <div style={{ marginTop: 8 }}>
                 <Button variant="primary" onClick={() => void authorizeCalendar()}>
                   Connect Calendar
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      </Section>
+
+      <Section title="">
+        <Card>
+          <div className="field">
+            <label>Fireflies</label>
+            <p className="helper">
+              Revenue Execution OS processes meetings recorded in your own Fireflies
+              account. It never sends Fireflies into a meeting.
+            </p>
+            {fireflies ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+                  <StatusBadge connected />
+                  <Button variant="secondary" disabled={busy === "fireflies"} onClick={() => void testFireflies()}>
+                    {busy === "fireflies" ? "Testing…" : "Test Connection"}
+                  </Button>
+                  <Button variant="ghost" disabled={busy === "fireflies"} onClick={() => void disconnect("fireflies")}>
+                    Disconnect
+                  </Button>
+                </div>
+                {firefliesInfo && (
+                  <div className="helper" style={{ marginTop: 8 }}>
+                    {firefliesInfo.meetingCount != null ? (
+                      <p style={{ margin: 0 }}>Found {firefliesInfo.meetingCount} recent meeting(s).</p>
+                    ) : null}
+                    {firefliesInfo.recent?.length ? (
+                      <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                        {firefliesInfo.recent.map((m, i) => (
+                          <li key={i}>
+                            {m.title ?? "(untitled)"}
+                            {m.startedAt ? ` · ${new Date(m.startedAt).toLocaleDateString()}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <input
+                  type="password"
+                  value={firefliesKey}
+                  onChange={(e) => setFirefliesKey(e.target.value)}
+                  placeholder="Fireflies API key"
+                  style={{ flex: 1 }}
+                />
+                <Button variant="primary" disabled={!firefliesKey.trim() || busy === "fireflies"} onClick={() => void connectFireflies()}>
+                  {busy === "fireflies" ? "Connecting…" : "Connect"}
                 </Button>
               </div>
             )}

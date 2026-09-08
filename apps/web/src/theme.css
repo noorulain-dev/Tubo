@@ -2,20 +2,20 @@
    Light is default; dark applies via [data-theme="dark"] on <html>. */
 
 :root {
-  /* Light palette */
-  --bg: #f7f7f4;
+  /* Light palette — matte black + warm white + iOS blue */
+  --bg: #f7f5f0;
   --surface: #ffffff;
-  --surface-2: #f1f1ed;
-  --text: #161616;
-  --text-2: #6d6d68;
-  --text-3: #a1a19a;
-  --border: #e5e5df;
-  --divider: #ecece6;
-  --accent: #b8ff2c;
-  --accent-ink: #161616;
+  --surface-2: #f0eee8;
+  --text: #1a1b1e;
+  --text-2: #4b4d52;
+  --text-3: #8a8d93;
+  --border: #e3e1da;
+  --divider: #ece9e2;
+  --accent: #267db9;
+  --accent-ink: #ffffff;
 
-  /* Semantic */
-  --success: #3fb950;
+  /* Semantic (notifications only) */
+  --success: #267db9;
   --warning: #d99a24;
   --danger: #e55353;
   --info: #4c8dff;
@@ -64,16 +64,16 @@
 }
 
 [data-theme="dark"] {
-  --bg: #0d0d0d;
-  --surface: #141414;
-  --surface-2: #1a1a19;
-  --text: #f5f5f0;
-  --text-2: #a6a69f;
-  --text-3: #6d6d68;
-  --border: #292927;
-  --divider: #232321;
-  --accent: #b8ff2c;
-  --accent-ink: #161616;
+  --bg: #1a1b1e;
+  --surface: #1e1f22;
+  --surface-2: #232428;
+  --text: #f5f3ee;
+  --text-2: #a8a69f;
+  --text-3: #6d6b66;
+  --border: #2b2c30;
+  --divider: #232428;
+  --accent: #267db9;
+  --accent-ink: #ffffff;
 
   --shadow-overlay: 0 8px 30px rgba(0, 0, 0, 0.5);
 
@@ -125,33 +125,33 @@ code,
 
 /* Legacy semantic remap — old styles.css variable names → new palette. */
 :root {
-  --green: #3fb950;
-  --green-soft: #e9f9ef;
-  --green-border: #c8edd6;
+  --green: #267db9;
+  --green-soft: #e7f1f8;
+  --green-border: #c2dded;
   --amber: #d99a24;
   --amber-soft: #fbf3e0;
   --orange: #e55353;
   --orange-soft: #fbeaea;
   --red: #e55353;
   --red-soft: #fbeaea;
-  --blue: #4c8dff;
-  --blue-soft: #eaf1ff;
+  --blue: #267db9;
+  --blue-soft: #e7f1f8;
   --yellow: #d99a24;
   --yellow-soft: #fbf3e0;
 }
 
 [data-theme="dark"] {
-  --green: #3fb950;
-  --green-soft: #17331f;
-  --green-border: #23563a;
+  --green: #267db9;
+  --green-soft: #1a2c3a;
+  --green-border: #234456;
   --amber: #d99a24;
   --amber-soft: #3a2f14;
   --orange: #e55353;
   --orange-soft: #3a1c1c;
   --red: #e55353;
   --red-soft: #3a1c1c;
-  --blue: #4c8dff;
-  --blue-soft: #1a2740;
+  --blue: #267db9;
+  --blue-soft: #1a2c3a;
   --yellow: #d99a24;
   --yellow-soft: #3a2f14;
 }

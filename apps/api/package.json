@@ -13,7 +13,8 @@
     "smoke:hubspot-write": "tsx src/smoke-hubspot-write.ts",
     "smoke:gmail": "tsx src/smoke-gmail.ts",
     "smoke:gmail-draft": "tsx src/smoke-gmail-draft.ts",
-    "smoke:calendar": "tsx src/smoke-calendar.ts"
+    "smoke:calendar": "tsx src/smoke-calendar.ts",
+    "smoke:fireflies": "tsx src/smoke-fireflies.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

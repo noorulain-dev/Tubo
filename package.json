@@ -19,6 +19,7 @@
     "smoke:gmail": "npm run smoke:gmail --workspace @revexec/api",
     "smoke:gmail-draft": "npm run smoke:gmail-draft --workspace @revexec/api",
     "smoke:calendar": "npm run smoke:calendar --workspace @revexec/api",
+    "smoke:fireflies": "npm run smoke:fireflies --workspace @revexec/api",
     "verify:step50-core": "npm run test --workspace @revexec/core && npm run test --workspace @revexec/api"
   },
   "engines": {

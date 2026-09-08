@@ -104,7 +104,9 @@ export function Sidebar(props: { active: string; onNavigate: (view: string) => v
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark">R</div>
+        <div className="brand-mark">
+          <img src="/image.png" alt="Revenue Execution OS" />
+        </div>
         <div>
           <div className="brand-name">Revenue Execution OS</div>
           <div className="brand-tag">Turn conversations into trusted state</div>

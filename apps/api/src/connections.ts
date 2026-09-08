@@ -1,7 +1,7 @@
 import { getPool } from "./db.js";
 import { decryptSecret, encryptSecret } from "./encryption.js";
 
-export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar";
+export type ConnectionProvider = "stripe" | "hubspot" | "gmail" | "google-calendar" | "fireflies";
 export type ConnectionState = "connected" | "needs_reauth";
 
 export interface ConnectionStatus {
@@ -9,9 +9,10 @@ export interface ConnectionStatus {
   hubspot: { connected: boolean; needsReauth: boolean };
   gmail: { connected: boolean; needsReauth: boolean };
   calendar: { connected: boolean; needsReauth: boolean };
+  fireflies: { connected: boolean; needsReauth: boolean };
 }
 
-const PROVIDERS: ConnectionProvider[] = ["stripe", "hubspot", "gmail", "google-calendar"];
+const PROVIDERS: ConnectionProvider[] = ["stripe", "hubspot", "gmail", "google-calendar", "fireflies"];
 
 async function getSecret(userId: string, provider: ConnectionProvider): Promise<string | null> {
   const pool = getPool();
@@ -51,7 +52,13 @@ export async function getConnectionsStatus(userId: string): Promise<ConnectionSt
     connected: states.has(p),
     needsReauth: states.get(p) === "needs_reauth",
   });
-  return { stripe: view("stripe"), hubspot: view("hubspot"), gmail: view("gmail"), calendar: view("google-calendar") };
+  return {
+    stripe: view("stripe"),
+    hubspot: view("hubspot"),
+    gmail: view("gmail"),
+    calendar: view("google-calendar"),
+    fireflies: view("fireflies"),
+  };
 }
 
 /** Retrieve a decrypted secret server-side for wiring the live pipeline. */
@@ -69,4 +76,8 @@ export async function getGmailRefreshToken(userId: string): Promise<string | nul
 
 export async function getCalendarRefreshToken(userId: string): Promise<string | null> {
   return getSecret(userId, "google-calendar");
+}
+
+export async function getFirefliesApiKey(userId: string): Promise<string | null> {
+  return getSecret(userId, "fireflies");
 }

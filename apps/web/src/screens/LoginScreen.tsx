@@ -26,7 +26,9 @@ export function LoginScreen({ onAuthed }: { onAuthed: (user: AuthUser) => void }
     <div className="shell" style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
       <div style={{ width: 360 }}>
         <div className="brand" style={{ marginBottom: 16 }}>
-          <div className="brand-mark">R</div>
+          <div className="brand-mark">
+            <img src="/image.png" alt="Revenue Execution OS" />
+          </div>
           <div>
             <div className="brand-name">Revenue Execution OS</div>
             <div className="brand-tag">Sign in to continue</div>

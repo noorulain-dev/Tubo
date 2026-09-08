@@ -131,5 +131,44 @@ export async function ensureSchema(): Promise<void> {
       UNIQUE (user_id, provider, provider_meeting_id)
     );
     CREATE INDEX IF NOT EXISTS idx_meeting_artifacts_user ON meeting_artifacts(user_id);
+
+    CREATE TABLE IF NOT EXISTS jobs (
+      id              text PRIMARY KEY,
+      user_id         text NOT NULL,
+      type            text NOT NULL,
+      resource_ref    text,
+      payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
+      scheduled_at    timestamptz NOT NULL DEFAULT now(),
+      status          text NOT NULL DEFAULT 'scheduled',
+      attempts        integer NOT NULL DEFAULT 0,
+      max_attempts    integer NOT NULL DEFAULT 5,
+      last_error_code text,
+      idempotency_key text NOT NULL UNIQUE,
+      created_at      timestamptz NOT NULL DEFAULT now(),
+      started_at      timestamptz,
+      completed_at    timestamptz
+    );
+    CREATE INDEX IF NOT EXISTS idx_jobs_ready ON jobs(status, scheduled_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id);
+
+    CREATE TABLE IF NOT EXISTS job_events (
+      id         bigserial PRIMARY KEY,
+      job_id     text NOT NULL,
+      user_id    text NOT NULL,
+      event_type text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events(job_id);
+
+    CREATE TABLE IF NOT EXISTS calendar_watch_channels (
+      channel_id  text PRIMARY KEY,
+      user_id     text NOT NULL,
+      resource_id text,
+      resource_uri text,
+      token       text,
+      expiration  timestamptz,
+      created_at  timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_calendar_watch_user ON calendar_watch_channels(user_id);
   `);
 }

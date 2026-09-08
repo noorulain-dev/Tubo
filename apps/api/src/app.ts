@@ -8,6 +8,8 @@ import { loginUser, logout, registerUser, type AuthUser } from "./auth-service.j
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "./connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "./gmail-oauth.js";
 import { syncCalendar } from "./calendar-sync.js";
+import { getChannelUser, registerWatch } from "./calendar-watch.js";
+import { enqueue } from "./jobs.js";
 import type { RunService } from "./pipeline.js";
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "./types.js";
 
@@ -417,6 +419,35 @@ export function createApp(opts: CreateAppOptions) {
     } catch (err) {
       return handleError(c, err);
     }
+  });
+
+  app.post("/integrations/google-calendar/watch", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const webhookUrl = process.env.CALENDAR_WEBHOOK_URL;
+    if (!webhookUrl) return c.json(errorEnvelope("CONFIG", "CALENDAR_WEBHOOK_URL is not set (a public HTTPS address is required)"), 400);
+    try {
+      const channel = await registerWatch(user.id, webhookUrl);
+      return c.json(channel);
+    } catch (err) {
+      return handleError(c, err);
+    }
+  });
+
+  app.post("/integrations/google-calendar/notifications", async (c) => {
+    const channelId = c.req.header("x-goog-channel-id");
+    if (channelId) {
+      const userId = await getChannelUser(channelId).catch(() => null);
+      if (userId) {
+        await enqueue({
+          type: "calendar.sync",
+          userId,
+          idempotencyKey: `cal:push:${userId}:${Math.floor(Date.now() / 60_000)}`,
+        }).catch(() => undefined);
+      }
+    }
+    // Respond quickly so Google doesn't retry; the body is ignored.
+    return c.json({ ok: true });
   });
 
   app.get("/integrations", (c) =>

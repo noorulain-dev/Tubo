@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getPool } from "../database/db.js";
+import { getPool, withTransaction } from "../database/db.js";
 
 export type JobType = "calendar.sync" | "fireflies.sync" | "fireflies.fetch" | "interaction.process" | "account.refresh";
 export type JobStatus = "scheduled" | "running" | "retrying" | "completed" | "failed" | "cancelled";
@@ -79,11 +79,8 @@ export async function enqueue(input: EnqueueInput): Promise<{ id: string; create
 
 /** Atomically claim up to `limit` ready jobs (FOR UPDATE SKIP LOCKED). */
 export async function claimNext(types: JobType[], limit = 5): Promise<Job[]> {
-  const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const res = await client.query<Job>(
+  return withTransaction(async (tx) => {
+    const res = await tx.query<Job>(
       `SELECT id, user_id, type, resource_ref, payload, scheduled_at, status, attempts, max_attempts,
               last_error_code, idempotency_key, created_at, started_at, completed_at
        FROM jobs
@@ -95,16 +92,10 @@ export async function claimNext(types: JobType[], limit = 5): Promise<Job[]> {
     );
     const jobs = res.rows;
     for (const j of jobs) {
-      await client.query("UPDATE jobs SET status = 'running', started_at = now(), attempts = attempts + 1 WHERE id = $1", [j.id]);
+      await tx.query("UPDATE jobs SET status = 'running', started_at = now(), attempts = attempts + 1 WHERE id = $1", [j.id]);
     }
-    await client.query("COMMIT");
     return jobs;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 export async function completeJob(jobId: string): Promise<void> {

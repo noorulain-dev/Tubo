@@ -7,7 +7,7 @@ import { bearerAuth } from "../auth/auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "../auth/auth-service.js";
 import { logger } from "../observability/logger.js";
 import { rateLimit } from "../observability/rate-limit.js";
-import { getPool, isDbConfigured } from "../database/db.js";
+import { isDbConfigured, pingDb } from "../database/db.js";
 import { consumePasswordReset, consumeVerificationToken, createPasswordReset, resendVerification, sendVerificationEmail } from "../auth/verification.js";
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "../integrations/connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "../integrations/gmail-oauth.js";
@@ -527,12 +527,8 @@ export function createApp(opts: CreateAppOptions) {
     let database = "ok";
     if (!isDbConfigured()) {
       database = "not_configured";
-    } else {
-      try {
-        await getPool().query("SELECT 1");
-      } catch {
-        database = "down";
-      }
+    } else if (!(await pingDb())) {
+      database = "down";
     }
     // No credentials/account details are ever returned here.
     const ready = database === "ok";

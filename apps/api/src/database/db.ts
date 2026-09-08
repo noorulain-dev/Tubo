@@ -1,23 +1,7 @@
-import pg from "pg";
+import { getPool, isDbConfigured, pingDb, withTransaction } from "./client.js";
 
-const { Pool } = pg;
-
-let pool: InstanceType<typeof Pool> | null = null;
-
-export function isDbConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
-}
-
-export function getPool(): InstanceType<typeof Pool> {
-  if (!pool) {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
-      throw new Error("DATABASE_URL is not set. Configure it in .env before starting the API.");
-    }
-    pool = new Pool({ connectionString: url });
-  }
-  return pool;
-}
+// Single Postgres client/transaction/health layer (see client.ts).
+export { getPool, isDbConfigured, pingDb, withTransaction } from "./client.js";
 
 /** Idempotent schema bootstrap — safe to run on every startup. */
 export async function ensureSchema(): Promise<void> {

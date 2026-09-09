@@ -4,7 +4,9 @@ import {
   GmailClient,
   GmailProvider,
   HubSpotCRMProvider,
+  HubSpotCommercialContext,
   HubSpotHttpClient,
+  loadConfig,
   type AgentReadContext,
   type CommercialStateReadProvider,
   type ContactRecord,
@@ -97,11 +99,13 @@ export class LiveProviderResolver implements ProviderResolver {
   async resolve(userId: string): Promise<ResolvedProviders> {
     const audit = new AuditService(new PostgresAuditSink(userId));
 
-    // HubSpot
+    // HubSpot — prefer the user's own connection, fall back to the operator token.
+    let hubspotClient: HubSpotHttpClient | undefined;
     let hubspot: HubSpotCRMProvider | undefined;
-    const hubspotToken = await getHubspotAccessToken(userId);
+    const hubspotToken = (await getHubspotAccessToken(userId)) ?? loadConfig().hubspotAccessToken;
     if (hubspotToken) {
-      hubspot = new HubSpotCRMProvider(new HubSpotHttpClient({ accessToken: hubspotToken, audit }), { audit });
+      hubspotClient = new HubSpotHttpClient({ accessToken: hubspotToken, audit });
+      hubspot = new HubSpotCRMProvider(hubspotClient, { audit });
     }
 
     // Gmail (with refresh)
@@ -122,7 +126,19 @@ export class LiveProviderResolver implements ProviderResolver {
       }
     }
 
-    const commercial: CommercialStateReadProvider = createSampleCommercial();
+    let commercial: CommercialStateReadProvider = createSampleCommercial();
+    if (hubspotClient) {
+      const hc = hubspotClient;
+      commercial = new HubSpotCommercialContext({
+        mapping: { objectType: "company", statusProperty: "revexec_billing_status" },
+        readProperties: async (objectType, objectId, properties) => {
+          const raw = (await hc.get(`/crm/v3/objects/${objectType}/${objectId}`, {
+            properties: properties.join(","),
+          })) as { properties?: Record<string, string | null | undefined> };
+          return raw.properties ?? {};
+        },
+      });
+    }
 
     const readContext: AgentReadContext = {
       crm: hubspot ?? emptyCrmRead(),

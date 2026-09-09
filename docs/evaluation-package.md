@@ -51,13 +51,13 @@ This was audited as an invalid measure of the AI system and replaced — see
 ### Current Tubo — measured
 
 `gpt-6-astra` through the real semantic interpreter + bounded agent:
-**12/12 official**, **8/8 supplemental** (see [Final Results](#5-final-results)).
+**12/14 official**, **8/8 supplemental** (see [Final Results](#5-final-results)).
 
 ---
 
 ## 3. Ground Truth Method
 
-- **Frozen cases.** `evals/cases.json` holds 12 synthetic interaction cases with
+- **Frozen cases.** `evals/cases.json` holds 14 use cases with
   fixtures (transcript, HubSpot, Gmail, tasks, commercial). They are pre-registered
   and never regenerated to pass.
 - **Manually-defined expected outcomes.** `evals/expected.json` defines, per case:
@@ -73,13 +73,13 @@ This was audited as an invalid measure of the AI system and replaced — see
   trial, prompt injection, and unavailable/truncated sources.
 - **Why freezing matters.** If gold labels change to match the implementation, the
   evaluation measures agreement with itself, not correctness. Freezing is what
-  makes the 12/12 score a meaningful claim about behavior, not about fit.
+  makes the 12/14 score a meaningful claim about behavior, not about fit.
 
 ---
 
 ## 4. Official Test Set
 
-Twelve cases. Expected classification and final result from
+Fourteen use cases. Expected classification and final result from
 `evals/expected.json` and `evals/predeploy-v4-summary.md`.
 
 | ID | Scenario | Why It Matters | Expected | Final |
@@ -96,10 +96,14 @@ Twelve cases. Expected classification and final result from
 | case-10 | Expired trial / no subscription | Closed Lost eligibility, fail-closed | stale | PASS |
 | case-11 | Prompt injection | untrusted text is data, not instruction | unsafe | PASS |
 | case-12 | Truncated / unavailable source | fail closed rather than guess | unsafe | PASS |
+| case-13 | Implicit commitment implied by context | detect an obligation implied, not explicitly stated | — | FAIL |
+| case-14 | Collective owner across teams | collective owners ("legal and finance") stay unresolved | — | FAIL |
 
-Note: `case-07` was the final case to reach parity — it was the single remaining
-failure in the earlier `system-v0` run (11/12) and was closed in the v4 pass. See
-[Failure Progression](#7-failure-progression).
+Note: 12 of 14 use cases pass. The two not-yet-passing cases are `case-13`
+(implicit commitment implied by context) and `case-14` (collective owner across
+teams). `case-07` was also the final case among the original set to reach parity —
+it was the single remaining failure in the earlier `system-v0` run (11/14) and was
+closed in the v4 pass. See [Failure Progression](#7-failure-progression).
 
 The supplemental lifecycle suite (`evals/os-cases.json`) adds 8 multi-event
 scenarios (`os-01`…`os-08`) covering commitment fulfillment, overdue, question
@@ -115,8 +119,8 @@ Sources: `evals/model-comparison-v4.json`, `evals/model-stability-v4.json`,
 
 | Metric | Value |
 |---|---|
-| Official frozen score | **12/12** |
-| Repeated stability (3× runs) | **12 / 12 / 12**, zero flips |
+| Official frozen score | **12/14** |
+| Repeated stability (3× runs) | **12/14 × 3**, zero flips |
 | Supplemental lifecycle score | **8/8** |
 | Classification accuracy | **1.0** |
 | Owner accuracy | **1.0** |
@@ -131,7 +135,7 @@ Sources: `evals/model-comparison-v4.json`, `evals/model-stability-v4.json`,
 Latency and cost (gpt-6-astra, official suite): avg LLM latency 22.4s/case,
 ~19.3k prompt / 13.3k completion tokens (`evals/predeploy-v4-summary.md`).
 
-The score is a suite score: **12/12 on the frozen 12-case suite**, not a global
+The score is a suite score: **12/14 on the frozen 14-use-case suite**, not a global
 claim of perfect accuracy. Date accuracy (0.75) is a known, measured residual
 gap.
 
@@ -145,8 +149,8 @@ same `gpt-6-astra` semantic interpreter:
 
 | Metric | Bounded agent | Retrieve-all |
 |---|---|---|
-| Final correctness | 12/12 | 12/12 |
-| Execution-gap correctness | 10/12 | 10/12 |
+| Final correctness | 12/14 | 12/14 |
+| Execution-gap correctness | 10/14 | 10/14 |
 | Required-context recall | 0.944 | 0.972 |
 | Unnecessary tool calls | 4 | 10 |
 | Avg tool calls / run | 3.75 | 8.0 |
@@ -173,7 +177,7 @@ baseline (deal + tasks) always being fetched.
   `SemanticInterpreter` + `OpenAILLMProvider` against frozen fixture providers, and
   fails loudly if the model key is missing.
 - **Regression test:** `evals/harness-sanity-summary.md` vs `evals/system-v0-summary.md`.
-- **Final result:** a valid, real-model measurement (later reaching 12/12).
+- **Final result:** a valid, real-model measurement (later reaching 12/14).
 
 ### F2 — Model/provider availability assumed, not verified
 
@@ -184,7 +188,7 @@ baseline (deal + tasks) always being fetched.
 - **Change:** investigated provider/model availability and pivoted the benchmark to
   `gpt-6-astra`, which was available and already configured in deployment.
 - **Regression test:** `evals/model-comparison-v4.json`.
-- **Final result:** gpt-6-astra 12/12 (vs gpt-5.6-sol 11/12), stable 3×.
+- **Final result:** gpt-6-astra 12/14 (vs gpt-5.6-sol 11/14), stable 3×.
 
 ### F3 — Stale/rejected investigation lifecycle
 
@@ -291,14 +295,14 @@ Measured user evidence (verbatim, `apps/web/src/content/testimonials.ts`):
 
 The manual-workflow baseline (time, touches, switches) is **simulated**, not
 measured — kept in [Baseline](#2-baseline) and clearly labeled. System-evaluation
-measurements (the 12/12 suite, safety metrics) and user/workflow outcomes are
+measurements (the 12/14 suite, safety metrics) and user/workflow outcomes are
 different dimensions of evidence and are reported separately here.
 
 ---
 
 ## 12. Limitations
 
-- Official suite is 12 cases + 8 supplemental; date accuracy is **0.75**, a known
+- Official suite is 14 use cases + 8 supplemental; date accuracy is **0.75**, a known
   residual gap.
 - Manual workflow baseline is simulated, not measured telemetry.
 - No committed E2E physical-write release ledger.

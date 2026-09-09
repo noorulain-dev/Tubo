@@ -43,6 +43,16 @@ export function GmailPanel({ accountId }: { accountId: string | null }) {
   const connected = conn?.gmail.connected ?? false;
   const needsReauth = conn?.gmail.needsReauth ?? false;
 
+  async function connect() {
+    setError(null);
+    try {
+      const { url } = await api.getGmailOAuthUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(e);
+    }
+  }
+
   const emailEvents = (detail?.recentEvents ?? []).filter((e) =>
     EMAIL_SOURCES.some((s) => (e.source ?? "").toLowerCase().includes(s) || e.eventType.toLowerCase().includes(s)),
   );
@@ -61,13 +71,20 @@ export function GmailPanel({ accountId }: { accountId: string | null }) {
       </div>
 
       {!connected && (
-        <InfoNotice>
-          <strong>Gmail access is user-authorised.</strong>
-          <p>
-            Google OAuth for this project is currently limited to approved testing accounts, so evaluators do not need to
-            connect a personal inbox. Everything Tubo needs for this assessment runs on synthetic workspace data.
-          </p>
-        </InfoNotice>
+        <>
+          <div className="panel-connect">
+            <button type="button" className="btn btn-primary" onClick={() => void connect()}>
+              Connect with Google
+            </button>
+          </div>
+          <InfoNotice>
+            <strong>Gmail access is user-authorised.</strong>
+            <p>
+              Google OAuth for this project is currently limited to approved testing accounts. Connect your Google
+              account to read email and prepare draft replies.
+            </p>
+          </InfoNotice>
+        </>
       )}
 
       {!accountId ? (

@@ -23,6 +23,8 @@ export function FirefliesPanel() {
   const [runs, setRuns] = useState<RunView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  const [key, setKey] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +51,19 @@ export function FirefliesPanel() {
   }, [load]);
 
   const connected = conn?.fireflies.connected ?? false;
+
+  async function connect() {
+    setConnecting(true);
+    setError(null);
+    try {
+      setConn(await api.connectFireflies(key));
+      setKey("");
+    } catch (e) {
+      setError(e);
+    } finally {
+      setConnecting(false);
+    }
+  }
   const ingestedRuns = runs.filter((r) => r.mode === "integration");
 
   return (
@@ -71,10 +86,21 @@ export function FirefliesPanel() {
       ) : error ? (
         <ErrorNotice error={error} onRetry={() => void load()} />
       ) : !connected ? (
-        <EmptyState
-          title="Fireflies is not connected"
-          hint="Add a Fireflies API key in Settings → Integrations to ingest processed transcripts."
-        />
+        <div className="panel-connect">
+          <div className="field">
+            <label htmlFor="fireflies-key">Fireflies API key</label>
+            <input
+              id="fireflies-key"
+              type="password"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Fireflies API key"
+            />
+          </div>
+          <button type="button" className="btn btn-primary" disabled={!key.trim() || connecting} onClick={() => void connect()}>
+            {connecting ? "Connecting…" : "Connect"}
+          </button>
+        </div>
       ) : (
         <>
           <section className="panel-section">

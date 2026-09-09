@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { api } from "../api";
 import type { RunView } from "../types";
-import { ErrorNotice, InfoNotice } from "../components/States";
+import { ErrorNotice } from "../components/States";
 
 const STAGES = [
   "Understanding interaction",
@@ -12,10 +12,6 @@ const STAGES = [
 ];
 
 export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => void }) {
-  const [mode, setMode] = useState<"sample" | "live">("sample");
-  const [liveAvailable, setLiveAvailable] = useState(false);
-  const [healthChecked, setHealthChecked] = useState(false);
-  const [healthError, setHealthError] = useState<string | null>(null);
   const [account, setAccount] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -23,19 +19,6 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [validation, setValidation] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .getHealth()
-      .then((h) => {
-        setLiveAvailable(h.liveAvailable);
-        setHealthChecked(true);
-      })
-      .catch((e) => {
-        setHealthError(e instanceof Error ? e.message : "could not reach the service");
-        setHealthChecked(true);
-      });
-  }, []);
 
   async function handleAnalyze() {
     if (!account.trim() || !transcript.trim()) {
@@ -46,7 +29,7 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
     setError(null);
     setLoading(true);
     try {
-      const run = await api.processInteraction({ text: transcript, kind: "note", accountId: account, mode });
+      const run = await api.processInteraction({ text: transcript, kind: "note", accountId: account, mode: "live" });
       onAnalyzed(run);
     } catch (e) {
       setError(e);
@@ -116,30 +99,6 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
             <label htmlFor="date">Date</label>
             <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={loading} />
           </div>
-          <div className="field">
-            <span className="field-label">Source</span>
-            <div className="segmented" role="group" aria-label="Processing mode">
-              <button type="button" className={mode === "sample" ? "active" : ""} onClick={() => setMode("sample")}>
-                Sample
-              </button>
-              <button
-                type="button"
-                className={mode === "live" ? "active" : ""}
-                disabled={!liveAvailable}
-                title={!liveAvailable ? "Live mode is not configured on the server" : ""}
-                onClick={() => setMode("live")}
-              >
-                Live
-              </button>
-            </div>
-          </div>
-
-          {healthChecked && healthError && (
-            <ErrorNotice error={{ code: "PROVIDER_UNAVAILABLE", message: "Tubo could not check live mode availability.", retryable: false }} compact />
-          )}
-          {healthChecked && !healthError && !liveAvailable && (
-            <InfoNotice>Live mode is unavailable in this environment. Sample mode uses synthetic workspace data.</InfoNotice>
-          )}
         </aside>
       </div>
     </>

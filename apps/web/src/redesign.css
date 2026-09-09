@@ -2549,6 +2549,14 @@ a.button,
   font-size: 16px;
 }
 
+/* Integration panel connect controls */
+.panel-connect {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+
 /* ---------- thin, sleek scrollbars ---------- */
 * {
   scrollbar-width: thin;

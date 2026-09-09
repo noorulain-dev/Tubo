@@ -89,6 +89,15 @@ export function CalendarPanel() {
   const connected = conn?.calendar.connected ?? false;
   const needsReauth = conn?.calendar.needsReauth ?? false;
 
+  async function connect() {
+    try {
+      const { url } = await api.getCalendarOAuthUrl();
+      window.location.href = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start Google Calendar authorization");
+    }
+  }
+
   const allDayEvents = events.filter((e) => e.allDay);
   const timedEvents = events.filter((e) => !e.allDay && e.startAt && e.endAt);
 
@@ -122,9 +131,12 @@ export function CalendarPanel() {
         <p className="cal-state-title">{needsReauth ? "Calendar needs reauthorization" : "Google Calendar is not connected"}</p>
         <p className="helper">
           {needsReauth
-            ? "Your Google authorization has expired. Reconnect Calendar from Settings → Integrations to view your day."
-            : "Connect Google Calendar from Settings → Integrations to see your schedule here."}
+            ? "Your Google authorization has expired. Reconnect Calendar to view your day."
+            : "Connect Google Calendar to see your schedule here."}
         </p>
+        <button type="button" className="btn btn-primary" onClick={() => void connect()}>
+          {needsReauth ? "Reconnect Calendar" : "Connect Calendar"}
+        </button>
       </div>
     );
   }

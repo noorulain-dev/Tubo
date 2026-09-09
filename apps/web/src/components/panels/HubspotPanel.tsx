@@ -36,6 +36,8 @@ export function HubspotPanel({ accountId }: { accountId: string | null }) {
   const [detail, setDetail] = useState<AccountDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [token, setToken] = useState("");
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     api.getConnections().then(setConn).catch(() => setConn(null));
@@ -52,6 +54,19 @@ export function HubspotPanel({ accountId }: { accountId: string | null }) {
   }, [accountId]);
 
   const connected = conn?.hubspot.connected ?? false;
+
+  async function connect() {
+    setConnecting(true);
+    setError(null);
+    try {
+      setConn(await api.connectHubspot(token));
+      setToken("");
+    } catch (e) {
+      setError(e);
+    } finally {
+      setConnecting(false);
+    }
+  }
   const alignment = alignmentOf(detail);
   const recentActions = (detail?.plans ?? []).flatMap((p) =>
     p.actions.filter((a) => /crm|hubspot|deal|stage|company|contact/i.test(a.action.type + a.action.target)).map((a) => ({ ...a, createdAt: p.createdAt })),
@@ -63,6 +78,24 @@ export function HubspotPanel({ accountId }: { accountId: string | null }) {
         <span className={`integration-dot ${connected ? "connected" : ""}`} aria-hidden />
         <span>{connected ? "Connected" : conn?.hubspot.needsReauth ? "Reauthorisation required" : "Not connected"}</span>
       </div>
+
+      {!connected && (
+        <div className="panel-connect">
+          <div className="field">
+            <label htmlFor="hubspot-token">HubSpot access token</label>
+            <input
+              id="hubspot-token"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="pat-…"
+            />
+          </div>
+          <button type="button" className="btn btn-primary" disabled={!token.trim() || connecting} onClick={() => void connect()}>
+            {connecting ? "Connecting…" : "Connect"}
+          </button>
+        </div>
+      )}
 
       {!accountId ? (
         <EmptyState title="Open an account to see its CRM context" hint="Tubo shows the operational slice of HubSpot, not the whole CRM." />

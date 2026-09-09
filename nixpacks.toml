@@ -7,7 +7,7 @@
 # otherwise trigger `npm --omit=dev` and strip the devDependencies the API
 # needs at runtime (it runs TypeScript directly via tsx — there is no build).
 [phases.setup]
-nixPkgs = ["nodejs", "npm"]
+nixPkgs = ["nodejs"]
 
 [phases.install]
 cmds = ["NODE_ENV=development npm install --no-audit --no-fund"]

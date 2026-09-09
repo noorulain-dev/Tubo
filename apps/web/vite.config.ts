@@ -8,4 +8,12 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   envDir: fileURLToPath(new URL("../..", import.meta.url)),
+  // Allow Railway's dynamically-named preview host (e.g. web-production-XXXX.up.railway.app).
+  // A leading dot matches any subdomain of railway.app.
+  server: {
+    allowedHosts: [".railway.app"],
+  },
+  preview: {
+    allowedHosts: [".railway.app"],
+  },
 });

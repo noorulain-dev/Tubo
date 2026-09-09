@@ -23,6 +23,7 @@ A preconfigured Tubo evaluator account is provided so the full workflow can be
 reviewed immediately using synthetic test business data.
 
 - **Tubo login:** `testuser@must.com`
+- password: MustHireNoor123_
 - **Connected Google test account:** `musthirenoor@gmail.com`
 
 Passwords are provided in the private submission instructions.

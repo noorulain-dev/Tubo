@@ -20,8 +20,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PublicLayout } from "./PublicLayout";
-import { useEvaluationSummary } from "../hooks";
-import { Skeleton } from "../components/States";
 
 /* ------------------------------------------------------------------ */
 /* Static, implementation-accurate content (no fake data / screenshots) */
@@ -96,10 +94,6 @@ const INTEGRATIONS = [
   { name: "Postgres / worker", icon: Layers },
 ] as const;
 
-function pct(v: number | null): string {
-  return v === null ? "—" : `${(v * 100).toFixed(1)}%`;
-}
-
 function SectionHead({ kicker, title, lead }: { kicker: string; title: string; lead?: string }) {
   return (
     <div className="section-head-block">
@@ -111,13 +105,10 @@ function SectionHead({ kicker, title, lead }: { kicker: string; title: string; l
 }
 
 export function FeaturesPage() {
-  const { summary, loading } = useEvaluationSummary();
-  const o = summary?.official;
-
   return (
     <PublicLayout>
       {/* Hero */}
-      <section className="hero feature-hero">
+      <section className="hero">
         <div className="hero-copy">
           <span className="hero-kicker">Tubo · Revenue Execution OS</span>
           <h1>From customer signal to trusted execution.</h1>
@@ -132,30 +123,6 @@ export function FeaturesPage() {
             <Link className="btn btn-secondary" to="/case-study">
               Read Case Study
             </Link>
-          </div>
-        </div>
-        <div className="hero-product" aria-hidden="true">
-          <div className="hero-card">
-            <div className="hero-card-head">
-              <span className="sev-pill sev-high">high</span>
-              <span className="hero-account">Northwind Logistics</span>
-              <span className="finding-type">commercial crm mismatch</span>
-            </div>
-            <p className="queue-issue">CRM shows Closed Won; the customer asked to delay signature by two weeks.</p>
-            <div className="queue-evidence">
-              <span className="tag tag-evidence">Transcript span</span>
-              <span className="tag tag-evidence">HubSpot deal</span>
-              <span className="tag tag-warn">Commercial unverified</span>
-            </div>
-          </div>
-          <div className="hero-card hero-card-approval">
-            <div className="hero-card-head">
-              <span className="tag tag-pending">Awaiting approval</span>
-            </div>
-            <div className="hero-approval-row">
-              <span>Update deal stage → Contract sent</span>
-              <span className="tag tag-muted">Risk: medium</span>
-            </div>
           </div>
         </div>
       </section>
@@ -410,23 +377,9 @@ export function FeaturesPage() {
           </Link>
         </div>
         <p className="section-lead">
-          Frozen synthetic scenarios test semantic interpretation, retrieval, reconciliation and safety — the same data
-          source as the Evaluation page.
+          Tubo is measured against a frozen 14-use-case suite covering semantic interpretation, retrieval, reconciliation
+          and safety. See the full results on the Evaluation page.
         </p>
-        {loading ? (
-          <Skeleton rows={2} height={92} />
-        ) : !summary ? (
-          <p className="section-lead">Evaluation results are unavailable in this environment.</p>
-        ) : (
-          <div className="metric-grid">
-            <div className="metric metric-ok"><span className="metric-value">12/14</span><span className="metric-label">Frozen cases passed</span></div>
-            <div className="metric"><span className="metric-value">{summary.stability.runs.length ? summary.stability.runs.join(" · ") : "—"}</span><span className="metric-label">Stability across repeated runs</span></div>
-            <div className="metric"><span className="metric-value">{summary.supplemental.casesPassed ?? "—"}/{summary.supplemental.casesTotal ?? "—"}</span><span className="metric-label">Lifecycle evaluation cases</span></div>
-            <div className="metric"><span className="metric-value">{pct(o?.layerB.requiredRetrievalRecall ?? null)}</span><span className="metric-label">Required retrieval recall</span></div>
-            <div className="metric metric-ok"><span className="metric-value">{o?.safety.externalExecutions ?? "—"}</span><span className="metric-label">Unsafe external executions</span></div>
-            <div className="metric metric-ok"><span className="metric-value">{o?.safety.injectionEscalations ?? "—"}</span><span className="metric-label">Injection escalations</span></div>
-          </div>
-        )}
       </section>
 
       {/* 13 — Integration map */}

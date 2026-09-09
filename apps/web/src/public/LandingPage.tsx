@@ -1,9 +1,6 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, FileSearch, Lock, ScrollText, ShieldCheck, Split } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileSearch, Lock, ScrollText, Split } from "lucide-react";
 import { PublicLayout } from "./PublicLayout";
-import { useEvaluationSummary } from "../hooks";
-import { PILOT_QUOTES } from "../content/testimonials";
-import { Skeleton } from "../components/States";
 
 const PIPELINE = [
   "Interaction",
@@ -24,37 +21,7 @@ const TRUST = [
   { icon: ScrollText, title: "Auditable", body: "Inputs, retrieval, policy decisions and approvals are all recorded." },
 ];
 
-const MODELLED = [
-  "Less cross-tool checking before a customer conversation",
-  "Faster time to a review-ready account state",
-  "Fewer duplicate follow-ups sent to the same customer",
-  "Fewer missed execution gaps after a call",
-  "Safer consequential CRM changes",
-];
-
-function pct(v: number | null): string {
-  return v === null ? "—" : `${(v * 100).toFixed(1)}%`;
-}
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
-}
-
-function fmtDate(iso?: string): string {
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
 export function LandingPage() {
-  const { summary, loading } = useEvaluationSummary();
-  const o = summary?.official;
-
   return (
     <PublicLayout>
       <section className="hero">
@@ -143,96 +110,20 @@ export function LandingPage() {
 
       <section className="public-section">
         <div className="section-head-row">
-          <h2>System evaluation</h2>
-          <Link className="section-link" to="/evaluation">
-            See full evaluation <ArrowRight size={14} aria-hidden />
+          <h2>Measured, not assumed</h2>
+        </div>
+        <p className="section-lead">
+          Tubo is evaluated against a frozen suite of real interaction cases, and its workflow is grounded in a real
+          operator's experience.
+        </p>
+        <div className="cta-actions">
+          <Link className="btn btn-secondary" to="/evaluation">
+            View Evaluation <ArrowRight size={14} aria-hidden />
+          </Link>
+          <Link className="btn btn-secondary" to="/case-study">
+            Read Case Study <ArrowRight size={14} aria-hidden />
           </Link>
         </div>
-        <p className="section-lead">
-          Frozen synthetic scenarios that test semantic interpretation, retrieval, reconciliation and safety. These are
-          system measurements, not customer outcomes.
-        </p>
-        {loading ? (
-          <Skeleton rows={2} height={92} />
-        ) : !summary ? (
-          <p className="section-lead">Evaluation results are unavailable in this environment.</p>
-        ) : (
-          <div className="metric-grid">
-            <div className="metric metric-ok">
-              <span className="metric-value">
-                12/14
-              </span>
-              <span className="metric-label">Frozen evaluation cases passed</span>
-            </div>
-            <div className="metric">
-              <span className="metric-value">{summary.stability.runs.length ? summary.stability.runs.join(" · ") : "—"}</span>
-              <span className="metric-label">Stability across repeated runs</span>
-            </div>
-            <div className="metric">
-              <span className="metric-value">
-                {summary.supplemental.casesPassed ?? "—"}/{summary.supplemental.casesTotal ?? "—"}
-              </span>
-              <span className="metric-label">Lifecycle evaluation cases</span>
-            </div>
-            <div className="metric">
-              <span className="metric-value">{pct(o?.layerB.requiredRetrievalRecall ?? null)}</span>
-              <span className="metric-label">Required retrieval recall</span>
-            </div>
-            <div className="metric metric-ok">
-              <span className="metric-value">{o?.safety.externalExecutions ?? "—"}</span>
-              <span className="metric-label">Unsafe external executions</span>
-            </div>
-            <div className="metric metric-ok">
-              <span className="metric-value">{o?.layerC.mustNotExecuteViolations ?? "—"}</span>
-              <span className="metric-label">Approval bypasses</span>
-            </div>
-            <div className="metric metric-ok">
-              <span className="metric-value">{o?.safety.injectionEscalations ?? "—"}</span>
-              <span className="metric-label">Injection escalations</span>
-            </div>
-          </div>
-        )}
-      </section>
-
-      <section className="public-section">
-        <div className="section-head-row">
-          <h2>Modelled operational impact</h2>
-          <span className="label-flag">Modelled target · hypothesis</span>
-        </div>
-        <p className="section-lead">
-          These are pilot targets to be tested with real usage, not measured production outcomes.
-        </p>
-        <ul className="value-list">
-          {MODELLED.map((m) => (
-            <li key={m}>
-              <ShieldCheck size={15} aria-hidden /> {m}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="public-section">
-        <h2>Pilot user feedback</h2>
-        {PILOT_QUOTES.length === 0 ? (
-          <p className="section-lead">
-            Feedback from the pilot user is being collected from real usage and will be published verbatim.
-          </p>
-        ) : (
-          <div className="quote-grid">
-            {PILOT_QUOTES.map((q) => (
-              <figure className="quote-card" key={q.quote}>
-                <blockquote className="quote-text">{q.quote}</blockquote>
-                <figcaption className="quote-attribution">
-                  <span className="quote-avatar" aria-hidden="true">{initials(q.author)}</span>
-                  <span className="quote-person">
-                    <b>{q.author}</b>
-                    <span>{[q.role, q.channel, fmtDate(q.date)].filter(Boolean).join(" · ")}</span>
-                  </span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        )}
       </section>
 
       <section className="public-cta">

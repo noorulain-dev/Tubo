@@ -1,0 +1,13 @@
+# Force npm (not bun) and run a full `npm install` (not `npm ci`) so the
+# dependency tree is recalculated from package.json. `npm ci` only installs
+# what's already in the lockfile, which drops newly-added transitive deps
+# (e.g. pino's `quick-format-unescaped`) when the lockfile is stale.
+#
+# NODE_ENV=development overrides Railway's `NODE_ENV=production`, which would
+# otherwise trigger `npm --omit=dev` and strip the devDependencies the API
+# needs at runtime (it runs TypeScript directly via tsx — there is no build).
+[phases.setup]
+nixPkgs = ["nodejs", "npm"]
+
+[phases.install]
+cmds = ["NODE_ENV=development npm install --no-audit --no-fund"]

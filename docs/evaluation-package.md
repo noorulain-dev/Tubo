@@ -44,7 +44,7 @@ production timing data. They are reported here as *simulated*, not measured.
 ### Naive / keyword AI baseline — measured (and rejected)
 
 The first evaluation harness used a keyword/regex stand-in for the semantic model
-(`createEvalLLM`), producing **3/12** (owner accuracy 0.42, classification 0.25).
+(`createEvalLLM`), producing **3/14** (owner accuracy 0.42, classification 0.25).
 This was audited as an invalid measure of the AI system and replaced — see
 [Failure Progression](#7-failure-progression).
 
@@ -169,7 +169,7 @@ baseline (deal + tasks) always being fetched.
 
 ### F1 — Invalid evaluator (keyword stand-in)
 
-- **Symptom:** the first harness scored **3/12** (owner accuracy 0.42,
+- **Symptom:** the first harness scored **3/14** (owner accuracy 0.42,
   classification 0.25).
 - **Root cause:** `createEvalLLM` was a regex/keyword stand-in that never called a
   real model, so it measured the wrong system (the plumbing, not the semantics).

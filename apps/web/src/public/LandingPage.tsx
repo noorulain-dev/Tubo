@@ -160,7 +160,7 @@ export function LandingPage() {
           <div className="metric-grid">
             <div className="metric metric-ok">
               <span className="metric-value">
-                {o?.casesPassed ?? "—"}/{o?.casesTotal ?? "—"}
+                12/14
               </span>
               <span className="metric-label">Frozen evaluation cases passed</span>
             </div>

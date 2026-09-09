@@ -48,6 +48,16 @@ export type AppConfig = z.infer<typeof ConfigSchema>;
 export function loadConfig(
   env: Record<string, string | undefined> = process.env,
 ): AppConfig {
+  // Some hosts (Railway/Nix) set unconfigured env vars to "" rather than leaving
+  // them unset. Normalize empty strings to `undefined` so Zod `.default()` and
+  // `.optional()` apply as intended (an empty NODE_ENV is not a valid enum value).
+  const normalized: Record<string, string | undefined> = {};
+  for (const key of Object.keys(env)) {
+    const value = env[key];
+    normalized[key] = value === "" ? undefined : value;
+  }
+  env = normalized;
+
   const parsed = ConfigSchema.safeParse({
     nodeEnv: env.NODE_ENV,
     logLevel: env.LOG_LEVEL,

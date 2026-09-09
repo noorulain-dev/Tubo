@@ -2,30 +2,30 @@
    Light is default; dark applies via [data-theme="dark"] on <html>. */
 
 :root {
-  /* Light palette — matte black + warm white + iOS blue */
-  --bg: #f7f5f0;
-  --surface: #ffffff;
-  --surface-2: #f0eee8;
-  --text: #1a1b1e;
-  --text-2: #4b4d52;
-  --text-3: #8a8d93;
-  --border: #e3e1da;
-  --divider: #ece9e2;
-  --accent: #267db9;
-  --accent-ink: #ffffff;
+  /* Aurora command deck */
+  --bg: #07111f;
+  --surface: rgba(11, 34, 57, 0.58);
+  --surface-2: rgba(163, 255, 203, 0.055);
+  --text: #eefcff;
+  --text-2: #a9c5d2;
+  --text-3: #6f8c9b;
+  --border: rgba(150, 226, 238, 0.14);
+  --divider: rgba(150, 226, 238, 0.09);
+  --accent: #22d3ee;
+  --accent-ink: #04151d;
 
   /* Semantic (notifications only) */
-  --success: #267db9;
+  --success: #a3ffcb;
   --warning: #d99a24;
   --danger: #e55353;
-  --info: #4c8dff;
-  --ai: #8b7cf6;
+  --info: #22d3ee;
+  --ai: #8dd9ff;
 
   /* Radii */
   --radius-control: 8px;
-  --radius-row: 10px;
-  --radius-surface: 14px;
-  --radius-overlay: 16px;
+  --radius-row: 8px;
+  --radius-surface: 12px;
+  --radius-overlay: 14px;
   --radius-pill: 999px;
 
   /* Typography scale */
@@ -57,25 +57,24 @@
   --content-max: 1180px;
 
   --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
-  --shadow-overlay: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --shadow-overlay: 0 24px 70px rgba(0, 0, 0, 0.38);
   --ease: 160ms cubic-bezier(0.2, 0, 0, 1);
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 [data-theme="dark"] {
-  --bg: #1a1b1e;
-  --surface: #1e1f22;
-  --surface-2: #232428;
-  --text: #f5f3ee;
-  --text-2: #a8a69f;
-  --text-3: #6d6b66;
-  --border: #2b2c30;
-  --divider: #232428;
-  --accent: #267db9;
-  --accent-ink: #ffffff;
-
-  --shadow-overlay: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --bg: #07111f;
+  --surface: rgba(11, 34, 57, 0.58);
+  --surface-2: rgba(163, 255, 203, 0.055);
+  --text: #eefcff;
+  --text-2: #a9c5d2;
+  --text-3: #6f8c9b;
+  --border: rgba(150, 226, 238, 0.14);
+  --divider: rgba(150, 226, 238, 0.09);
+  --accent: #22d3ee;
+  --accent-ink: #04151d;
+  --shadow-overlay: 0 24px 70px rgba(0, 0, 0, 0.5);
 
   color-scheme: dark;
 }
@@ -88,9 +87,14 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(34, 211, 238, 0.18), transparent 42%),
+    radial-gradient(ellipse at 88% 28%, rgba(163, 255, 203, 0.12), transparent 38%),
+    radial-gradient(ellipse at 52% 100%, rgba(37, 99, 235, 0.15), transparent 44%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
-  font-family: "Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Sans", "Geist Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
   line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
@@ -101,6 +105,7 @@ h2,
 h3,
 h4 {
   margin: 0;
+  font-family: "Space Grotesk", "Geist Sans", sans-serif;
   font-weight: 600;
   color: var(--text);
 }
@@ -125,33 +130,33 @@ code,
 
 /* Legacy semantic remap — old styles.css variable names → new palette. */
 :root {
-  --green: #267db9;
-  --green-soft: #e7f1f8;
-  --green-border: #c2dded;
+  --green: #22d3ee;
+  --green-soft: rgba(34, 211, 238, 0.12);
+  --green-border: rgba(34, 211, 238, 0.28);
   --amber: #d99a24;
   --amber-soft: #fbf3e0;
   --orange: #e55353;
   --orange-soft: #fbeaea;
   --red: #e55353;
   --red-soft: #fbeaea;
-  --blue: #267db9;
-  --blue-soft: #e7f1f8;
+  --blue: #22d3ee;
+  --blue-soft: rgba(34, 211, 238, 0.12);
   --yellow: #d99a24;
   --yellow-soft: #fbf3e0;
 }
 
 [data-theme="dark"] {
-  --green: #267db9;
-  --green-soft: #1a2c3a;
-  --green-border: #234456;
+  --green: #22d3ee;
+  --green-soft: rgba(34, 211, 238, 0.12);
+  --green-border: rgba(34, 211, 238, 0.28);
   --amber: #d99a24;
   --amber-soft: #3a2f14;
   --orange: #e55353;
   --orange-soft: #3a1c1c;
   --red: #e55353;
   --red-soft: #3a1c1c;
-  --blue: #267db9;
-  --blue-soft: #1a2c3a;
+  --blue: #22d3ee;
+  --blue-soft: rgba(34, 211, 238, 0.12);
   --yellow: #d99a24;
   --yellow-soft: #3a2f14;
 }

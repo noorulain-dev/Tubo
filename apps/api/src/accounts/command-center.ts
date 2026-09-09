@@ -4,6 +4,8 @@ import type { Finding, FindingType, Severity } from "./risk-scanner.js";
 import { listFindings } from "./risk-scanner.js";
 import { listPlans } from "../proposals/execution-plans.js";
 import { listAccountEvents, getSnapshot } from "./account-intelligence.js";
+import { detectContextGaps } from "./context-resolution.js";
+
 
 /**
  * STEP 57 — Revenue Command Center (backend/API only).
@@ -35,9 +37,12 @@ export interface AccountRow {
   pendingCount: number;
   lastReviewedAt: string | null;
   updatedAt: string | null;
+  /** Open questions only a human can answer (missing/ambiguous required context). */
+  needsContextCount: number;
   /** True for [ASSESSMENT]-tagged synthetic records (shown as "Test data" in the UI). */
   isAssessment: boolean;
 }
+
 
 const SEVERITY_RANK: Record<Severity, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
@@ -97,7 +102,10 @@ export function aggregateAccount(accountId: string, snapshot: AccountIntelligenc
     pendingCount: openFindings.length,
     lastReviewedAt: reviewedAt,
     updatedAt: null,
+    // Counted from persisted state only (no provider calls on page load).
+    needsContextCount: detectContextGaps({ accountId, snapshot, findings: openFindings }).length,
     isAssessment: accountId.startsWith("[ASSESSMENT]") || (snapshot.identity?.name?.includes("[ASSESSMENT]") ?? false),
+
   };
 }
 

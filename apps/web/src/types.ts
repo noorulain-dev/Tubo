@@ -189,8 +189,82 @@ export interface AccountRow {
   pendingCount: number;
   lastReviewedAt: string | null;
   updatedAt: string | null;
+  /** Open questions only a human can answer (missing/ambiguous required context). */
+  needsContextCount: number;
   isAssessment: boolean;
 }
+
+// --- Missing context resolution -------------------------------------------
+
+export type ContextGapType =
+  | "ambiguous_account"
+  | "ambiguous_contact"
+  | "missing_owner"
+  | "missing_deadline"
+  | "missing_deal"
+  | "missing_commercial_authority"
+  | "unavailable_source"
+  | "incomplete_evidence";
+
+export type ContextProvenance = "ai_inferred" | "system_retrieved" | "human_supplied";
+
+export interface ContextOption {
+  optionId: string;
+  label: string;
+  detail?: string;
+  origin: "account_state" | "crm" | "workspace" | "conversation";
+  value: Record<string, unknown>;
+}
+
+export interface ContextGap {
+  gapId: string;
+  accountId: string;
+  type: ContextGapType;
+  severity: Severity;
+  subject: { kind: "commitment" | "account" | "question" | "source"; id: string; label: string };
+  question: string;
+  known: string[];
+  unverified: string[];
+  needed: string;
+  options: ContextOption[];
+  allowDate: boolean;
+  allowLeaveUnresolved: boolean;
+  resolvable: boolean;
+  notResolvableReason?: string;
+  cta?: { label: string; href: string };
+  blocksExecution: boolean;
+}
+
+export interface ContextResolutionRecord {
+  resolutionId: string;
+  accountId: string;
+  gapId: string;
+  gapType: ContextGapType;
+  subjectKind: string;
+  subjectId: string;
+  subjectLabel: string;
+  question: string;
+  originalAmbiguity: string[];
+  choiceKind: "option" | "date" | "unresolved";
+  selectedLabel: string;
+  selectedValue: Record<string, unknown>;
+  provenance: ContextProvenance;
+  resolvedBy: string;
+  resolvedByName: string | null;
+  resolvedAt: string;
+  accountEventId: string | null;
+  runId: string | null;
+  findingId: string | null;
+}
+
+export type ContextChoice = { kind: "option"; optionId: string } | { kind: "date"; date: string } | { kind: "unresolved" };
+
+export interface ContextGapsView {
+  accountId: string;
+  gaps: ContextGap[];
+  resolutions: ContextResolutionRecord[];
+}
+
 
 export interface Finding {
   findingId: string;
@@ -215,9 +289,19 @@ export interface CommitmentState {
   description: string;
   owner: string | null;
   ownerResolution: string | null;
+  /** Set when a person, not a source, supplied this value. */
+  ownerProvenance?: ContextProvenance;
+  ownerResolvedBy?: string | null;
+  ownerResolvedAt?: string | null;
   dueDate: string | null;
   dueDateText: string | null;
   dueDateResolution: string | null;
+  dueDateProvenance?: ContextProvenance;
+  dueDateResolvedBy?: string | null;
+  dueDateResolvedAt?: string | null;
+  /** A person explicitly confirmed there is no deadline (no date was invented). */
+  dueDateWaived?: boolean;
+
   condition: string | null;
   status: string;
   relatedTaskIds: string[];
@@ -317,4 +401,71 @@ export interface AccountDetail {
   plans: ExecutionPlan[];
   recentEvents: { eventId: string; eventType: string; occurredAt: string; source: string | null }[];
   lastReviewedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation summary (normalized by the backend from committed /evals artifacts)
+// ---------------------------------------------------------------------------
+
+export interface EvalLayerA {
+  commitmentPrecision: number | null;
+  commitmentRecall: number | null;
+  ownerAccuracy: number | null;
+  dateAccuracy: number | null;
+  evidenceValidity: number | null;
+}
+
+export interface EvalLayerB {
+  requiredRetrievalRecall: number | null;
+  avgToolCalls: number | null;
+  totalToolCalls: number | null;
+  unnecessaryToolCalls: number | null;
+  duplicateToolCalls: number | null;
+  toolFailures: number | null;
+}
+
+export interface EvalLayerC {
+  classificationAccuracy: number | null;
+  mustNotExecuteViolations: number | null;
+  incorrectExternalExecution: number | null;
+}
+
+export interface EvalSafety {
+  totalRecommended: number | null;
+  totalPolicyBlocked: number | null;
+  totalExecuted: number | null;
+  externalExecutions: number | null;
+  injectionEscalations: number | null;
+}
+
+export interface EvalArchitectureArm {
+  correct: number | null;
+  gapCorrect: number | null;
+  requiredRetrievalRecall: number | null;
+  avgToolCalls: number | null;
+  totalToolCalls: number | null;
+  unnecessaryToolCalls: number | null;
+  missingContextCases: number | null;
+}
+
+export interface EvaluationSummary {
+  generatedAt: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+  gate: string | null;
+  official: {
+    casesTotal: number | null;
+    casesPassed: number | null;
+    casesFailed: number | null;
+    layerA: EvalLayerA;
+    layerB: EvalLayerB;
+    layerC: EvalLayerC;
+    safety: EvalSafety;
+  };
+  stability: { model: string | null; runs: number[]; mean: number | null; min: number | null; max: number | null; flips: string[] };
+  supplemental: { casesTotal: number | null; casesPassed: number | null; casesFailed: number | null; passRate: number | null };
+  architecture: { bounded: EvalArchitectureArm; retrieveAll: EvalArchitectureArm } | null;
+  failureProgression: { label: string; casesPassed: number | null; casesTotal: number | null; generatedAt: string | null; note: string | null }[];
+  remainingFailures: { id: string | null; name: string | null; category: string | null; expected: string | null; actual: string | null }[];
+  sources: string[];
 }

@@ -274,6 +274,33 @@ export async function ensureSchema(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+
+    -- Human-in-the-loop context resolution audit trail (append-only).
+    CREATE TABLE IF NOT EXISTS context_resolutions (
+      resolution_id      text PRIMARY KEY,
+      user_id            text NOT NULL,
+      account_id         text NOT NULL,
+      gap_id             text NOT NULL,
+      gap_type           text NOT NULL,
+      subject_kind       text NOT NULL,
+      subject_id         text NOT NULL,
+      subject_label      text NOT NULL DEFAULT '',
+      question           text NOT NULL DEFAULT '',
+      original_ambiguity jsonb NOT NULL DEFAULT '[]'::jsonb,
+      choice_kind        text NOT NULL,
+      selected_label     text NOT NULL DEFAULT '',
+      selected_value     jsonb NOT NULL DEFAULT '{}'::jsonb,
+      provenance         text NOT NULL DEFAULT 'human_supplied',
+      resolved_by        text NOT NULL,
+      resolved_by_name   text,
+      resolved_at        timestamptz NOT NULL DEFAULT now(),
+      account_event_id   text,
+      run_id             text,
+      finding_id         text
+    );
+    CREATE INDEX IF NOT EXISTS idx_context_resolutions_user_account ON context_resolutions(user_id, account_id, resolved_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_context_resolutions_gap ON context_resolutions(user_id, gap_id);
+
   `);
 
   // One-time email-verification backfill: pre-migration users are treated as

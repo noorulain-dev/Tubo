@@ -2,15 +2,17 @@
   "name": "revenue-execution-os",
   "version": "0.1.0",
   "private": true,
-  "description": "Revenue Execution OS — reconciles customer conversations against CRM, email, task, and commercial state.",
+  "description": "Revenue Execution OS \u2014 reconciles customer conversations against CRM, email, task, and commercial state.",
   "type": "module",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "dev": "cd apps/web && npx vite --host 0.0.0.0 --port 8080",
+    "build:dev": "cd apps/web && npx vite build && cd ../.. && rm -rf dist && cp -R apps/web/dist dist",
+    "typecheck": "cd apps/web && npx tsc --noEmit",
+    "build": "cd apps/web && npx vite build",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "smoke:hubspot": "npm run smoke:hubspot --workspace @revexec/api",

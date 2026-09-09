@@ -43,6 +43,7 @@ function row(over: Partial<AccountRow> = {}): AccountRow {
     commercial: null,
     highestSeverity: null,
     topFinding: null,
+    needsContextCount: 0,
     openCommitments: 0,
     openQuestions: 0,
     blockerCount: 0,

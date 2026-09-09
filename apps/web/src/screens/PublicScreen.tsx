@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "../components";
+import { TuboMark } from "../components/TuboMark";
 
 /** Generic public page (marketing / auth helper) — a placeholder for now. */
 export function PublicScreen({
@@ -19,7 +20,7 @@ export function PublicScreen({
       <div style={{ width: 460 }}>
         <div className="brand" style={{ marginBottom: 16 }}>
           <div className="brand-mark">
-            <img src="/image.png" alt="Tubo" />
+            <TuboMark size={22} />
           </div>
           <div>
             <div className="brand-name">Tubo</div>

@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { Building2, FlaskConical, History, LayoutDashboard, Settings, Waypoints, type LucideIcon } from "lucide-react";
+
 import type { Classification, Mode, RiskLevel, RunStatus } from "./types";
+import { TuboMark } from "./components/TuboMark";
 
 export function Button(props: {
   children: ReactNode;
@@ -105,27 +108,27 @@ export function EmptyState(props: { title: string; hint?: string }) {
 }
 
 export function Sidebar() {
-  const items: { to: string; label: string; group: string }[] = [
-    { to: "/app/command-center", label: "Command Center", group: "Overview" },
-    { to: "/app/accounts", label: "Accounts", group: "Overview" },
-    { to: "/app/process", label: "Process Interaction", group: "Overview" },
-    { to: "/app/runs", label: "Runs", group: "Overview" },
-    { to: "/app/evaluation", label: "Evaluation", group: "Insights" },
-    { to: "/app/settings", label: "Settings", group: "System" },
+  const items: { to: string; label: string; group: string; icon: LucideIcon }[] = [
+    { to: "/app/command-center", label: "Command Center", group: "Workspace", icon: LayoutDashboard },
+    { to: "/app/accounts", label: "Accounts", group: "Workspace", icon: Building2 },
+    { to: "/app/process", label: "Process Interaction", group: "Workspace", icon: Waypoints },
+    { to: "/app/runs", label: "Runs", group: "Workspace", icon: History },
+    { to: "/app/evaluation", label: "Evaluation", group: "Proof", icon: FlaskConical },
+    { to: "/app/settings", label: "Settings", group: "System", icon: Settings },
   ];
   let lastGroup = "";
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark">
-          <img src="/image.png" alt="Tubo" />
+          <TuboMark size={22} />
         </div>
         <div>
           <div className="brand-name">Tubo</div>
           <div className="brand-tag">Revenue Execution OS</div>
         </div>
       </div>
-      <nav className="nav">
+      <nav className="nav" aria-label="Primary">
         {items.map((it) => {
           const header = it.group !== lastGroup ? <div className="nav-group">{it.group}</div> : null;
           lastGroup = it.group;
@@ -133,7 +136,8 @@ export function Sidebar() {
             <div key={it.to}>
               {header}
               <NavLink to={it.to} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-                {it.label}
+                <it.icon size={15} aria-hidden />
+                <span>{it.label}</span>
               </NavLink>
             </div>
           );
@@ -145,3 +149,4 @@ export function Sidebar() {
     </aside>
   );
 }
+

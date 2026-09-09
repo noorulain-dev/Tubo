@@ -7,9 +7,15 @@ import "@fontsource/geist-sans/500.css";
 import "@fontsource/geist-sans/600.css";
 import "@fontsource/geist-sans/700.css";
 import "@fontsource/geist-mono/400.css";
+import "@fontsource/space-grotesk/500.css";
+import "@fontsource/space-grotesk/600.css";
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
 import "./styles.css";
 import "./theme.css";
 import "./primitives.css";
+import "./redesign.css";
 import { applyTheme, readStoredTheme } from "./theme";
 
 // Apply the stored theme before first paint to avoid a flash of the wrong theme.

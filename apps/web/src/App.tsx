@@ -15,7 +15,15 @@ import { CalendarDrawer } from "./screens/CalendarDrawer";
 import { CommandCenterScreen } from "./screens/CommandCenterScreen";
 import { AccountsScreen } from "./screens/AccountsScreen";
 import { AccountScreen } from "./screens/AccountScreen";
-import { PublicScreen } from "./screens/PublicScreen";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LandingPage } from "./public/LandingPage";
+import { CaseStudyPage } from "./public/CaseStudyPage";
+import { HowIBuiltItPage } from "./public/HowIBuiltItPage";
+import { NextPage } from "./public/NextPage";
+import { PrivacyPage } from "./public/PrivacyPage";
+import { NotFoundPage } from "./public/NotFoundPage";
+import { VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage } from "./screens/auth/AuthFlowPages";
+
 
 interface LayoutContext {
   openAudit: (runId: string) => Promise<void>;
@@ -43,9 +51,9 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
       <main className="main">
         <div className="user-bar">
           <span className="helper">{user.email}</span>
-          <Button variant="secondary" onClick={() => setCalendarOpen(true)}>Calendar</Button>
           <Button variant="ghost" onClick={() => void onLogout()}>Log out</Button>
         </div>
+
         <Outlet context={{ openAudit, evaluator: !!user.evaluator }} />
       </main>
       <IntegrationRail />
@@ -143,41 +151,39 @@ export default function App() {
   const openRun = (id: string) => navigate(`/app/runs/${id}`);
 
   return (
-    <Routes>
-      {/* Public marketing / auth */}
-      <Route
-        path="/"
-        element={
-          <PublicScreen
-            title="Turn customer conversations into trusted operational state."
-            cta={{ label: "Open Demo Workspace", to: "/login" }}
-          />
-        }
-      />
-      <Route path="/login" element={<LoginScreen onAuthed={onAuthed} />} />
-      <Route path="/signup" element={<LoginScreen onAuthed={onAuthed} />} />
-      <Route path="/verify-email" element={<PublicScreen title="Verify your email" subtitle="Check your inbox for a confirmation link." />} />
-      <Route path="/forgot-password" element={<PublicScreen title="Forgot password" subtitle="Enter your email to request a reset link." />} />
-      <Route path="/reset-password" element={<PublicScreen title="Reset password" subtitle="Choose a new password." />} />
-      <Route path="/case-study" element={<PublicScreen title="Case study" />} />
-      <Route path="/ai-collaboration" element={<PublicScreen title="AI collaboration" />} />
-      <Route path="/next" element={<PublicScreen title="What's next" />} />
+    <ErrorBoundary>
+      <Routes>
+        {/* Public site */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/case-study" element={<CaseStudyPage />} />
+        <Route path="/ai-collaboration" element={<HowIBuiltItPage />} />
+        <Route path="/next" element={<NextPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
-      {/* Authenticated */}
-      <Route path="/app" element={<Navigate to="/app/command-center" replace />} />
-      <Route element={layout}>
-        <Route path="/app/command-center" element={<CommandCenterScreen onOpenAccount={openAccount} />} />
-        <Route path="/app/accounts" element={<AccountsScreen onOpenAccount={openAccount} />} />
-        <Route path="/app/accounts/:accountId" element={<AccountPage />} />
-        <Route path="/app/process" element={<ProcessScreen onAnalyzed={(r: RunView) => openRun(r.id)} />} />
-        <Route path="/app/runs" element={<RunsScreen />} />
-        <Route path="/app/runs/:runId" element={<RunPage />} />
-        <Route path="/app/evaluation" element={<EvaluationScreen />} />
-        <Route path="/app/settings" element={<SettingsScreen />} />
-      </Route>
+        {/* Auth */}
+        <Route path="/login" element={<LoginScreen onAuthed={onAuthed} mode="login" />} />
+        <Route path="/signup" element={<LoginScreen onAuthed={onAuthed} mode="register" />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {/* 404 */}
-      <Route path="*" element={<PublicScreen title="Not found" subtitle="This page does not exist." />} />
-    </Routes>
+        {/* Authenticated */}
+        <Route path="/app" element={<Navigate to="/app/command-center" replace />} />
+        <Route element={layout}>
+          <Route path="/app/command-center" element={<CommandCenterScreen onOpenAccount={openAccount} />} />
+          <Route path="/app/accounts" element={<AccountsScreen onOpenAccount={openAccount} />} />
+          <Route path="/app/accounts/:accountId" element={<AccountPage />} />
+          <Route path="/app/process" element={<ProcessScreen onAnalyzed={(r: RunView) => openRun(r.id)} />} />
+          <Route path="/app/runs" element={<RunsScreen />} />
+          <Route path="/app/runs/:runId" element={<RunPage />} />
+          <Route path="/app/evaluation" element={<EvaluationScreen />} />
+          <Route path="/app/settings" element={<SettingsScreen />} />
+        </Route>
+
+        {/* 404 */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
+

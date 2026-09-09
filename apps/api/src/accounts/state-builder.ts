@@ -60,6 +60,13 @@ export interface EvidenceRef {
   reference: string | null;
 }
 
+/**
+ * Where a single field's value came from. `human_supplied` is only ever set by
+ * an explicit operator resolution — it never overwrites `sourceEvidence`, which
+ * remains the untouched record of what the original conversation actually said.
+ */
+export type FieldProvenance = "ai_inferred" | "system_retrieved" | "human_supplied";
+
 export interface CommitmentState {
   id: string;
   accountId: string | null;
@@ -67,9 +74,18 @@ export interface CommitmentState {
   description: string;
   owner: string | null;
   ownerResolution: ResolutionState | null;
+  /** Set when a human resolved the owner; absent means the model/source inferred it. */
+  ownerProvenance?: FieldProvenance;
+  ownerResolvedBy?: string | null;
+  ownerResolvedAt?: string | null;
   dueDate: string | null;
   dueDateText: string | null;
   dueDateResolution: ResolutionState | null;
+  dueDateProvenance?: FieldProvenance;
+  dueDateResolvedBy?: string | null;
+  dueDateResolvedAt?: string | null;
+  /** A human explicitly recorded that there is no deadline. Not a fabricated date. */
+  dueDateWaived?: boolean;
   condition: string | null;
   status: CommitmentStatus;
   sourceEvidence: EvidenceRef[];
@@ -79,6 +95,7 @@ export interface CommitmentState {
   createdAt: string;
   updatedAt: string;
 }
+
 
 export type QuestionStatus = "open" | "answered" | "ambiguous" | "obsolete";
 
@@ -389,10 +406,22 @@ interface CommitmentUpdate {
   status?: CommitmentStatus;
   owner?: string | null;
   dueDate?: string | null;
+  /** Explicitly "there is no deadline" — distinct from "we don't know yet". */
+  dueDateWaived?: boolean;
   type?: CommitmentType;
 }
 
-function applyCommitmentUpdates(snapshot: AccountIntelligenceSnapshot, updates: CommitmentUpdate[] | undefined, event: AccountEvent): void {
+/**
+ * `provenance` marks who supplied the corrected field. Source evidence is never
+ * touched here, so history is never rewritten to look like the customer said it.
+ */
+function applyCommitmentUpdates(
+  snapshot: AccountIntelligenceSnapshot,
+  updates: CommitmentUpdate[] | undefined,
+  event: AccountEvent,
+  provenance?: FieldProvenance,
+  resolvedBy?: string | null,
+): void {
   for (const u of updates ?? []) {
     const c = snapshot.commitments.find(
       (x) => (u.commitmentId && x.id === u.commitmentId) || (u.description && norm(x.description) === norm(u.description)),
@@ -402,15 +431,38 @@ function applyCommitmentUpdates(snapshot: AccountIntelligenceSnapshot, updates: 
     if (u.owner !== undefined) {
       c.owner = u.owner?.trim() ? u.owner : null;
       c.ownerResolution = u.owner?.trim() ? "resolved" : null;
+      if (provenance) {
+        c.ownerProvenance = provenance;
+        c.ownerResolvedBy = resolvedBy ?? null;
+        c.ownerResolvedAt = event.occurredAt;
+      }
     }
     if (u.dueDate !== undefined) {
       c.dueDate = u.dueDate;
       c.dueDateResolution = u.dueDate ? "resolved" : null;
+      if (u.dueDate) c.dueDateWaived = false;
+      if (provenance) {
+        c.dueDateProvenance = provenance;
+        c.dueDateResolvedBy = resolvedBy ?? null;
+        c.dueDateResolvedAt = event.occurredAt;
+      }
+    }
+    if (u.dueDateWaived === true) {
+      // No date is invented. The commitment simply stops asking for one.
+      c.dueDateWaived = true;
+      c.dueDateResolution = "unsupported";
+      if (provenance) {
+        c.dueDateProvenance = provenance;
+        c.dueDateResolvedBy = resolvedBy ?? null;
+        c.dueDateResolvedAt = event.occurredAt;
+      }
     }
     if (u.type) c.type = u.type;
+    if (c.status === "ambiguous" && c.ownerResolution === "resolved" && c.dueDateResolution !== "ambiguous") c.status = "open";
     c.updatedAt = event.occurredAt;
   }
 }
+
 
 interface QuestionUpdate {
   questionId?: string;
@@ -581,10 +633,23 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
     case "manual_correction":
       next.lastReviewed = occurredAt;
       if (event.eventType === "manual_correction") {
+        // Human-supplied context is tagged so the UI can always distinguish it
+        // from what a source actually reported.
+        const humanProvenance: FieldProvenance | undefined = p.provenanceTag === "human_supplied" ? "human_supplied" : undefined;
+        const resolvedBy = typeof p.resolvedBy === "string" ? p.resolvedBy : null;
         if (typeof p.stage === "string") next.stage = p.stage;
         if (typeof p.status === "string") next.commercial = { status: p.status, provenance: event.provenance ?? "manual_correction" };
+        if (p.identityUpdates && typeof p.identityUpdates === "object") {
+          // Identity linkage only (company/contact/deal). Never stage or commercial truth.
+          const u = p.identityUpdates as Record<string, unknown>;
+          const patch: NonNullable<AccountIntelligenceSnapshot["identity"]> = { ...(next.identity ?? {}) };
+          if (typeof u.companyId === "string") patch.companyId = u.companyId;
+          if (typeof u.contactId === "string") patch.contactId = u.contactId;
+          if (typeof u.dealId === "string") patch.dealId = u.dealId;
+          next.identity = patch;
+        }
         if (p.ownerResolutions) ingestOwnerResolutions(next, p.ownerResolutions as SemanticPayload["ownerResolutions"], event);
-        if (p.commitmentUpdates) applyCommitmentUpdates(next, p.commitmentUpdates as CommitmentUpdate[], event);
+        if (p.commitmentUpdates) applyCommitmentUpdates(next, p.commitmentUpdates as CommitmentUpdate[], event, humanProvenance, resolvedBy);
         if (p.questionUpdates) applyQuestionUpdates(next, p.questionUpdates as QuestionUpdate[], event);
         if (p.risks) next.risks = union(next.risks, p.risks as string[]);
         if (Array.isArray(p.resolvedBlockers)) {
@@ -592,6 +657,7 @@ export function reduceEvent(snapshot: AccountIntelligenceSnapshot, event: Accoun
           next.blockers = next.blockers.filter((b) => !resolved.has(b));
         }
       }
+
       break;
   }
 

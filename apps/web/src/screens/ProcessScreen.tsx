@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { api } from "../api";
-import { Button, Card, Spinner } from "../components";
 import type { RunView } from "../types";
+import { ErrorNotice, InfoNotice } from "../components/States";
+
+const STAGES = [
+  "Understanding interaction",
+  "Checking account context",
+  "Reconciling operational state",
+  "Building recommendations",
+];
 
 export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => void }) {
   const [mode, setMode] = useState<"sample" | "live">("sample");
@@ -13,7 +21,8 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [transcript, setTranscript] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [validation, setValidation] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -23,23 +32,24 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
         setHealthChecked(true);
       })
       .catch((e) => {
-        setHealthError(e instanceof Error ? e.message : "could not reach the API server");
+        setHealthError(e instanceof Error ? e.message : "could not reach the service");
         setHealthChecked(true);
       });
   }, []);
 
   async function handleAnalyze() {
     if (!account.trim() || !transcript.trim()) {
-      setError("Account and interaction notes are required.");
+      setValidation("Add an account and the interaction notes before processing.");
       return;
     }
+    setValidation(null);
     setError(null);
     setLoading(true);
     try {
       const run = await api.processInteraction({ text: transcript, kind: "note", accountId: account, mode });
       onAnalyzed(run);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to process interaction");
+      setError(e);
     } finally {
       setLoading(false);
     }
@@ -47,74 +57,91 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
 
   return (
     <>
-      <div className="main-header">
+      <header className="page-head">
         <div>
-          <div className="page-title">Process interaction</div>
-          <div className="page-subtitle">Turn a customer conversation into trusted operational state.</div>
+          <h1 className="page-title">Process interaction</h1>
+          <p className="page-subtitle">Turn a customer conversation into trusted operational state.</p>
         </div>
-      </div>
+      </header>
 
-      <Card>
-        <div className="field" style={{ maxWidth: 320 }}>
-          <label>Mode</label>
-          <div className="segmented">
-            <button className={mode === "sample" ? "active" : ""} onClick={() => setMode("sample")}>Sample Mode</button>
-            <button
-              className={mode === "live" ? "active" : ""}
-              disabled={!liveAvailable}
-              title={!liveAvailable ? "Live Mode is not configured on the server" : ""}
-              onClick={() => setMode("live")}
-            >
-              Live Mode
-            </button>
-          </div>
-          {healthChecked && healthError && (
-            <p className="helper">
-              Could not reach the API server to check Live Mode ({healthError}). Verify the backend is running and that
-              AUTH_TOKEN and VITE_AUTH_TOKEN match.
-            </p>
-          )}
-          {healthChecked && !healthError && !liveAvailable && (
-            <p className="helper">Live Mode is unavailable — the server has no live LLM/integration configured. Running Sample Mode only.</p>
-          )}
-        </div>
-
-        <div className="field-row">
-          <div className="field">
-            <label>Account</label>
-            <input value={account} onChange={(e) => setAccount(e.target.value)} placeholder="e.g. demo_stale" />
-          </div>
-          <div className="field">
-            <label>Interaction title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Renewal call" />
-          </div>
-        </div>
-
-        <div className="field">
-          <label>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
-
-        <div className="field">
-          <label>Transcript / notes</label>
+      <div className="process-grid">
+        <section className="process-main" aria-label="Interaction">
+          <label className="field-label" htmlFor="transcript">
+            Transcript or notes
+          </label>
           <textarea
+            id="transcript"
+            className="process-textarea"
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             placeholder="Paste the call transcript, meeting notes, or email body here…"
+            disabled={loading}
           />
-        </div>
+          {validation && (
+            <p className="field-error" role="alert">
+              {validation}
+            </p>
+          )}
+          {error != null && <ErrorNotice error={error} />}
 
-        {error && <div className="alert alert-error">{error}</div>}
+          <div className="process-actions">
+            <button type="button" className="btn btn-primary" onClick={() => void handleAnalyze()} disabled={loading}>
+              <Sparkles size={15} aria-hidden /> {loading ? "Processing…" : "Process interaction"}
+            </button>
+            <span className="process-note">Consequential changes always require your approval.</span>
+          </div>
 
-        <Button variant="primary" onClick={handleAnalyze} disabled={loading}>
-          {loading ? <Spinner /> : null} Analyze Interaction
-        </Button>
+          {loading && (
+            <ol className="process-stages" aria-live="polite">
+              {STAGES.map((s) => (
+                <li key={s} className="process-stage">
+                  <span className="stage-dot" aria-hidden />
+                  {s}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
-        <p className="helper">
-          Tubo compares this interaction against CRM, communication and commercial state.
-          Consequential changes require your approval.
-        </p>
-      </Card>
+        <aside className="process-side" aria-label="Source and context">
+          <div className="field">
+            <label htmlFor="account">Account</label>
+            <input id="account" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="e.g. demo_stale" disabled={loading} />
+          </div>
+          <div className="field">
+            <label htmlFor="title">Interaction title</label>
+            <input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Renewal call" disabled={loading} />
+          </div>
+          <div className="field">
+            <label htmlFor="date">Date</label>
+            <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={loading} />
+          </div>
+          <div className="field">
+            <span className="field-label">Source</span>
+            <div className="segmented" role="group" aria-label="Processing mode">
+              <button type="button" className={mode === "sample" ? "active" : ""} onClick={() => setMode("sample")}>
+                Sample
+              </button>
+              <button
+                type="button"
+                className={mode === "live" ? "active" : ""}
+                disabled={!liveAvailable}
+                title={!liveAvailable ? "Live mode is not configured on the server" : ""}
+                onClick={() => setMode("live")}
+              >
+                Live
+              </button>
+            </div>
+          </div>
+
+          {healthChecked && healthError && (
+            <ErrorNotice error={{ code: "PROVIDER_UNAVAILABLE", message: "Tubo could not check live mode availability.", retryable: false }} compact />
+          )}
+          {healthChecked && !healthError && !liveAvailable && (
+            <InfoNotice>Live mode is unavailable in this environment. Sample mode uses synthetic workspace data.</InfoNotice>
+          )}
+        </aside>
+      </div>
     </>
   );
 }

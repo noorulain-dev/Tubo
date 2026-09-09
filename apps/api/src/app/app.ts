@@ -22,7 +22,13 @@ import { getFinding, listFindings } from "../accounts/risk-scanner.js";
 import { applyDecision, approveAllEligible, getPlan, listPlans, savePlan, type ExecutionPlan } from "../proposals/execution-plans.js";
 import { createExecutionPlan } from "../proposals/plan-service.js";
 import { getAccountDetail, listAccountRows, markReviewed } from "../accounts/command-center.js";
+import { getContextGaps, submitContextResolution } from "../accounts/context-resolution-service.js";
+import { listContextResolutions } from "../accounts/context-resolution-repository.js";
+import type { ResolutionChoice } from "../accounts/context-resolution.js";
+
 import type { RunService } from "../runs/pipeline.js";
+import { loadEvaluationSummary } from "../evaluation/evaluation-summary.js";
+
 import { InteractionInputSchema, ProposalEditSchema, type ErrorEnvelope, type RunView } from "../shared/types.js";
 
 export interface CreateAppOptions {
@@ -331,6 +337,66 @@ export function createApp(opts: CreateAppOptions) {
     return c.json({ findings });
   });
 
+  // --- Missing / ambiguous context resolution (human-in-the-loop) ----------
+  // Read-only: what can a human legitimately answer on this account right now?
+  app.get("/accounts/:accountId/context-gaps", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const view = await getContextGaps(user.id, c.req.param("accountId"), { id: user.id, email: user.email });
+    return c.json(view);
+  });
+
+  // Persist one human answer, then re-run ONLY this account's reconciliation.
+  // Never approves, executes, or overrides an authoritative source.
+  app.post("/accounts/:accountId/context-resolutions", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const body = (await c.req.json().catch(() => null)) as {
+      gapId?: string;
+      choice?: { kind?: string; optionId?: string; date?: string };
+      runId?: string | null;
+      findingId?: string | null;
+    } | null;
+    if (!body?.gapId || !body.choice?.kind) return c.json(errorEnvelope("VALIDATION", "gapId and choice are required"), 400);
+
+    const kind = body.choice.kind;
+    let choice: ResolutionChoice;
+    if (kind === "option") {
+      if (!body.choice.optionId) return c.json(errorEnvelope("VALIDATION", "optionId is required"), 400);
+      choice = { kind: "option", optionId: body.choice.optionId };
+    } else if (kind === "date") {
+      if (!body.choice.date) return c.json(errorEnvelope("VALIDATION", "date is required"), 400);
+      choice = { kind: "date", date: body.choice.date };
+    } else if (kind === "unresolved") {
+      choice = { kind: "unresolved" };
+    } else {
+      return c.json(errorEnvelope("VALIDATION", "unsupported choice kind"), 400);
+    }
+
+    const result = await submitContextResolution(
+      user.id,
+      c.req.param("accountId"),
+      body.gapId,
+      choice,
+      { id: user.id, email: user.email },
+      { runId: body.runId ?? null, findingId: body.findingId ?? null },
+    );
+    if (!result.ok) {
+      const status = result.code === "NOT_FOUND" ? 404 : result.code === "GAP_NOT_RESOLVABLE" ? 409 : 400;
+      return c.json(errorEnvelope(result.code === "NOT_FOUND" ? "NOT_FOUND" : "VALIDATION", result.message), status);
+    }
+    return c.json(result, 201);
+  });
+
+  // Append-only audit trail of human-supplied context for this account.
+  app.get("/accounts/:accountId/context-resolutions", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const resolutions = await listContextResolutions(user.id, c.req.param("accountId"));
+    return c.json({ resolutions });
+  });
+
+
   app.post("/accounts/:accountId/refresh", async (c) => {
     const user = currentUser(c);
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
@@ -543,6 +609,19 @@ export function createApp(opts: CreateAppOptions) {
   });
 
   app.get("/health", (c) => c.json({ status: "ok", mode: opts.mode ?? "sample", liveAvailable: !!opts.liveService }));
+
+  // Read-only, public: normalized summary of the COMMITTED evaluation artifacts.
+  // Never re-runs an evaluation; returns 404 when no artifacts are present.
+  app.get("/evaluation/summary", async (c) => {
+    try {
+      const summary = await loadEvaluationSummary();
+      if (!summary) return c.json(errorEnvelope("NOT_FOUND", "no committed evaluation artifacts are available"), 404);
+      return c.json(summary);
+    } catch (err) {
+      return handleError(c, err);
+    }
+  });
+
 
   // Readiness: critical dependency (database) must be reachable to serve.
   app.get("/ready", async (c) => {

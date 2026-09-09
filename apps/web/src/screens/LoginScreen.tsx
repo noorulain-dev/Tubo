@@ -1,59 +1,83 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type AuthUser } from "../api";
-import { Button, Card } from "../components";
+import { AuthShell } from "./auth/AuthShell";
+import { ErrorNotice } from "../components/States";
 
-export function LoginScreen({ onAuthed }: { onAuthed: (user: AuthUser) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+export function LoginScreen({ onAuthed, mode = "login" }: { onAuthed: (user: AuthUser) => void; mode?: "login" | "register" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [validation, setValidation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const isRegister = mode === "register";
 
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      setValidation("Enter your email and password.");
+      return;
+    }
+    if (isRegister && password.length < 8) {
+      setValidation("Password must be at least 8 characters.");
+      return;
+    }
+    setValidation(null);
     setError(null);
     setBusy(true);
     try {
-      const result = mode === "login" ? await api.login(email, password) : await api.register(email, password);
+      const result = isRegister ? await api.register(email, password) : await api.login(email, password);
       onAuthed(result.user);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Authentication failed");
+    } catch (err) {
+      setError(err);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="shell" style={{ display: "grid", placeItems: "center", minHeight: "100vh" }}>
-      <div style={{ width: 360 }}>
-        <div className="brand" style={{ marginBottom: 16 }}>
-          <div className="brand-mark">
-            <img src="/image.png" alt="Tubo" />
-          </div>
-          <div>
-            <div className="brand-name">Tubo</div>
-            <div className="brand-tag">Revenue Execution OS</div>
-          </div>
+    <AuthShell
+      title={isRegister ? "Create your Tubo account" : "Sign in to Tubo"}
+      lead={isRegister ? "One account for reconciled revenue state across your stack." : "Pick up where your accounts left off."}
+      footer={
+        isRegister ? (
+          <span>
+            Already have an account? <Link to="/login">Sign in</Link>
+          </span>
+        ) : (
+          <span>
+            New here? <Link to="/signup">Create an account</Link> · <Link to="/forgot-password">Forgot password?</Link>
+          </span>
+        )
+      }
+    >
+      <form onSubmit={(e) => void submit(e)} noValidate>
+        <div className="field">
+          <label htmlFor="email">Email</label>
+          <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
         </div>
-        <Card>
-          <div className="segmented" style={{ width: "100%", marginBottom: 16 }}>
-            <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Sign in</button>
-            <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Create account</button>
-          </div>
-          <div className="field">
-            <label>Email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
-          </div>
-          <div className="field">
-            <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-          {mode === "register" && <p className="helper">Password must be at least 8 characters.</p>}
-          {error && <div className="alert alert-error">{error}</div>}
-          <Button variant="primary" disabled={busy || !email.trim() || !password} onClick={() => void submit()}>
-            {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
-          </Button>
-        </Card>
-      </div>
-    </div>
+        <div className="field">
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            autoComplete={isRegister ? "new-password" : "current-password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+          {isRegister && <p className="field-hint">At least 8 characters.</p>}
+        </div>
+        {validation && (
+          <p className="field-error" role="alert">
+            {validation}
+          </p>
+        )}
+        {error != null && <ErrorNotice error={error} />}
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+          {busy ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

@@ -1,6 +1,73 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "./api";
-import type { AccountDetail, AccountRow, InteractionInput, ProposalView, RunView } from "./types";
+import { api, type ConnectionStatus } from "./api";
+import type {
+  AccountDetail,
+  AccountRow,
+  ContextChoice,
+  ContextGap,
+  ContextResolutionRecord,
+  EvaluationSummary,
+  InteractionInput,
+  ProposalView,
+  RunView,
+} from "./types";
+
+/**
+ * Missing-context state for one account: the questions a human can answer, plus
+ * the append-only record of answers already given. Resolving re-runs only this
+ * account's reconciliation — it never approves or executes anything.
+ */
+export function useContextGaps(accountId: string | null) {
+  const [gaps, setGaps] = useState<ContextGap[]>([]);
+  const [resolutions, setResolutions] = useState<ContextResolutionRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const view = await api.getContextGaps(accountId);
+      setGaps(view.gaps);
+      setResolutions(view.resolutions);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load missing context");
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const resolve = useCallback(
+    async (gapId: string, choice: ChoiceInput, links: { runId?: string | null; findingId?: string | null } = {}) => {
+      if (!accountId) return;
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await api.resolveContextGap(accountId, gapId, choice, links);
+        setGaps(result.gaps);
+        setResolutions((prev) => [result.resolution, ...prev]);
+        return result;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not save that answer");
+        throw e;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [accountId],
+  );
+
+  return { gaps, resolutions, loading, saving, error, refresh, resolve };
+}
+
+type ChoiceInput = ContextChoice;
+
 
 export function useRuns() {
   const [runs, setRuns] = useState<RunView[]>([]);
@@ -149,3 +216,57 @@ export function useAccountDetail(accountId: string | null) {
 }
 
 export type { InteractionInput, ProposalView, RunView };
+
+// ---------------------------------------------------------------------------
+// Evaluation + connections (read-only surfaces)
+// ---------------------------------------------------------------------------
+
+/** Loads the normalized evaluation summary the backend derives from committed artifacts. */
+export function useEvaluationSummary() {
+  const [summary, setSummary] = useState<EvaluationSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setSummary(await api.getEvaluationSummary());
+    } catch (e) {
+      setSummary(null);
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { summary, loading, error, refresh };
+}
+
+export function useConnections() {
+  const [status, setStatus] = useState<ConnectionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setStatus(await api.getConnections());
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { status, loading, error, refresh };
+}

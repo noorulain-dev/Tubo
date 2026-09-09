@@ -1,10 +1,16 @@
 import type {
   AccountDetail,
   AccountRow,
+  ContextChoice,
+  ContextGap,
+  ContextGapsView,
+  ContextResolutionRecord,
+
   ErrorEnvelope,
   ExecutionPlan,
   Finding,
   InteractionInput,
+  EvaluationSummary,
   InvestigationResult,
   ProposalView,
   RunView,
@@ -229,6 +235,30 @@ export const api = {
   listFindings(accountId: string): Promise<{ findings: Finding[] }> {
     return request<{ findings: Finding[] }>(`/accounts/${encodeURIComponent(accountId)}/findings`);
   },
+  /** Questions a human can legitimately answer on this account right now. */
+  getContextGaps(accountId: string): Promise<ContextGapsView> {
+    return request<ContextGapsView>(`/accounts/${encodeURIComponent(accountId)}/context-gaps`);
+  },
+  /**
+   * Submit one human answer. The backend re-derives the gap and rejects any
+   * value that is not one of the candidates it found in real data.
+   */
+  resolveContextGap(
+    accountId: string,
+    gapId: string,
+    choice: ContextChoice,
+    links: { runId?: string | null; findingId?: string | null } = {},
+  ): Promise<{ ok: true; resolution: ContextResolutionRecord; gaps: ContextGap[]; reconciled: boolean }> {
+    return request(`/accounts/${encodeURIComponent(accountId)}/context-resolutions`, {
+      method: "POST",
+      body: JSON.stringify({ gapId, choice, ...links }),
+    });
+  },
+  listContextResolutions(accountId: string): Promise<{ resolutions: ContextResolutionRecord[] }> {
+    return request<{ resolutions: ContextResolutionRecord[] }>(`/accounts/${encodeURIComponent(accountId)}/context-resolutions`);
+  },
+
+
   refreshAccount(accountId: string): Promise<{ enqueued: boolean; jobId: string }> {
     return request<{ enqueued: boolean; jobId: string }>(`/accounts/${encodeURIComponent(accountId)}/refresh`, { method: "POST" });
   },
@@ -243,6 +273,9 @@ export const api = {
   },
   applyPlanDecision(planId: string, actionId: string, decision: "approve" | "reject" | "edit", payload?: Record<string, unknown>): Promise<ExecutionPlan> {
     return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/decision`, { method: "POST", body: JSON.stringify({ decision, payload }) });
+  },
+  getEvaluationSummary(): Promise<EvaluationSummary> {
+    return request<EvaluationSummary>("/evaluation/summary");
   },
   approveAllPlan(planId: string): Promise<ExecutionPlan> {
     return request<ExecutionPlan>(`/execution-plans/${planId}/approve-all`, { method: "POST" });

@@ -15,7 +15,6 @@ export function SettingsScreen() {
   const { evaluator } = useOutletContext<{ evaluator: boolean }>();
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stripeKey, setStripeKey] = useState("");
   const [hubspotToken, setHubspotToken] = useState("");
   const [firefliesKey, setFirefliesKey] = useState("");
   const [firefliesInfo, setFirefliesInfo] = useState<{ meetingCount?: number; recent?: { title: string | null; startedAt: string | null }[] } | null>(null);
@@ -27,19 +26,6 @@ export function SettingsScreen() {
       .then(setConnections)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load connections"));
   }, []);
-
-  async function connectStripe() {
-    setError(null);
-    setBusy("stripe");
-    try {
-      setConnections(await api.connectStripe(stripeKey));
-      setStripeKey("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to connect Stripe");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function connectHubspot() {
     setError(null);
@@ -129,7 +115,6 @@ export function SettingsScreen() {
     }
   }
 
-  const stripe = connections?.stripe.connected ?? false;
   const hubspot = connections?.hubspot.connected ?? false;
   const gmail = connections?.gmail.connected ?? false;
   const calendar = connections?.calendar.connected ?? false;
@@ -152,36 +137,6 @@ export function SettingsScreen() {
           without connecting a personal Google account.
         </div>
       )}
-
-      <Section title="Connections">
-        <Card>
-          <div className="field">
-            <label>Stripe</label>
-            <p className="helper">Paste a Stripe secret key to read subscription and trial state.</p>
-            {stripe ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
-                <StatusBadge connected />
-                <Button variant="ghost" disabled={busy === "stripe"} onClick={() => void disconnect("stripe")}>
-                  Disconnect
-                </Button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                <input
-                  type="password"
-                  value={stripeKey}
-                  onChange={(e) => setStripeKey(e.target.value)}
-                  placeholder="sk_test_…"
-                  style={{ flex: 1 }}
-                />
-                <Button variant="primary" disabled={!stripeKey.trim() || busy === "stripe"} onClick={() => void connectStripe()}>
-                  {busy === "stripe" ? "Connecting…" : "Connect"}
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-      </Section>
 
       <Section title="">
         <Card>

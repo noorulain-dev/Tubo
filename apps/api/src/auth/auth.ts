@@ -2,7 +2,7 @@ import type { Context, MiddlewareHandler } from "hono";
 import { getUserByToken, type AuthUser } from "./auth-service.js";
 import { isDbConfigured } from "../database/db.js";
 
-/** Paths reachable without a session (OAuth callbacks, auth, health). */
+/** Paths reachable without a session (OAuth callbacks, auth, health, public read-only surfaces). */
 const PUBLIC_PATHS = new Set([
   "/health",
   "/auth/register",
@@ -14,6 +14,7 @@ const PUBLIC_PATHS = new Set([
   "/gmail/oauth/callback",
   "/integrations/google-calendar/oauth/callback",
   "/integrations/google-calendar/notifications",
+  "/evaluation/summary",
 ]);
 
 declare module "hono" {

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { Building2, FlaskConical, History, LayoutDashboard, Settings, Waypoints, type LucideIcon } from "lucide-react";
+import { Building2, History, LayoutDashboard, Settings, Waypoints, type LucideIcon } from "lucide-react";
 
 import type { Classification, Mode, RiskLevel, RunStatus } from "./types";
 import { TuboMark } from "./components/TuboMark";
@@ -113,7 +113,6 @@ export function Sidebar() {
     { to: "/app/accounts", label: "Accounts", group: "Workspace", icon: Building2 },
     { to: "/app/process", label: "Process Interaction", group: "Workspace", icon: Waypoints },
     { to: "/app/runs", label: "Runs", group: "Workspace", icon: History },
-    { to: "/app/evaluation", label: "Evaluation", group: "Proof", icon: FlaskConical },
     { to: "/app/settings", label: "Settings", group: "System", icon: Settings },
   ];
   let lastGroup = "";

@@ -88,7 +88,7 @@ export function HowIBuiltItPage() {
       <section>
         <h2>AI-assisted development</h2>
         <p>
-          I used AI development tools throughout the sprint to accelerate implementation, debugging, testing, refactoring
+          I used AI development tools throughout the sprint to accelerate implementation, refactoring,
           and documentation. Their output remained subject to the same architecture constraints, evaluation, review and
           rejection as any other engineering input.
         </p>

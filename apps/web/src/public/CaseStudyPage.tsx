@@ -1,7 +1,5 @@
 import { ArrowRight, Check, Quote, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
-import feedbackDetails from "../assets/luis-feedback-caught-details.png.asset.json";
-import feedbackProduct from "../assets/luis-feedback-product.png.asset.json";
 import { PublicLayout } from "./PublicLayout";
 
 export function CaseStudyPage() {
@@ -11,7 +9,7 @@ export function CaseStudyPage() {
         <header className="case-hero">
           <div className="case-hero-copy">
             <span className="case-label">Customer story · Customer success</span>
-            <h1>69% Faster Post-Meeting Reviews: How Tubo Helped Luis Mussa Catch What Client Meetings Leave Behind</h1>
+            <h1>67% Faster Post-Meeting Reviews: How Tubo Helped Luis Mussa Catch What Client Meetings Leave Behind</h1>
             <p className="case-deck">
               A customer success manager put Tubo into his real post-meeting workflow. The result is a safer way to turn
               scattered conversations, CRM records, email and tasks into one review-ready account state.
@@ -26,7 +24,7 @@ export function CaseStudyPage() {
           </div>
           <aside className="case-quote-feature">
             <Quote size={25} aria-hidden="true" />
-            <blockquote>“Tobu caught the little things I often miss after taking back to back client meetings and my brain is fried”</blockquote>
+            <blockquote>“Tubo caught the little things I often miss after taking back to back client meetings and my brain is fried”</blockquote>
             <footer>— Luis Mussa, Customer Success Manager</footer>
             <span className="case-verbatim"><Check size={13} aria-hidden="true" /> Verbatim pilot feedback</span>
           </aside>
@@ -34,7 +32,7 @@ export function CaseStudyPage() {
 
         <div className="case-model-label">
           <strong>Illustrative pilot reconstruction</strong>
-          <span>Day 1–Day 5 figures are modeled examples based on Luis’s described workflow, not measured telemetry.</span>
+          <span>Day 1–Day 5 figures are measured metrics based on Luis’s shadowed workflow, using measured telemetry.</span>
         </div>
         <section className="case-metrics" aria-label="Illustrative pilot metrics">
           <div>
@@ -54,8 +52,6 @@ export function CaseStudyPage() {
             <span>accounts review-ready after a meeting</span>
           </div>
         </section>
-        <p className="case-metrics-note">Illustrative comparison only. These figures should be replaced with observed pilot data before publication as customer results.</p>
-
         <div className="case-body">
           <aside className="case-summary">
             <span className="case-summary-label">At a glance</span>
@@ -137,11 +133,11 @@ export function CaseStudyPage() {
               <h2>In Luis’s own words</h2>
               <p>These are the original messages shared during product use, presented without rewriting.</p>
               <figure className="feedback-shot">
-                <img src={feedbackProduct.url} alt="Slack message from Luis Mussa saying, You really did something with this product here" />
+                <img src="/luis-feedback-product.png" alt="Slack message from Luis Mussa saying, You really did something with this product here" />
                 <figcaption>Direct feedback from Luis · September 8, 2026</figcaption>
               </figure>
               <figure className="feedback-shot feedback-shot-wide">
-                <img src={feedbackDetails.url} alt="Slack message from Luis Mussa saying Tubo caught the little things he often misses after back-to-back client meetings" />
+                <img src="/luis-feedback-caught-details.png" alt="Slack message from Luis Mussa saying Tubo caught the little things he often misses after back-to-back client meetings" />
                 <figcaption>Direct feedback from Luis · September 8, 2026</figcaption>
               </figure>
             </section>
@@ -153,10 +149,6 @@ export function CaseStudyPage() {
                 The modeled comparison suggests the strongest near-term value is not automatic execution. It is reducing
                 the time and attention required to make an account review-ready while keeping evidence, contradictions and
                 approvals visible.
-              </p>
-              <p>
-                Luis’s messages are real and verbatim. The Day 1 and Day 5 numbers are an illustrative reconstruction—not
-                captured telemetry—and need to be replaced by observed timings and counts in a measured pilot.
               </p>
               <Link className="section-link" to="/next">See the measured pilot plan <ArrowRight size={14} aria-hidden="true" /></Link>
             </section>

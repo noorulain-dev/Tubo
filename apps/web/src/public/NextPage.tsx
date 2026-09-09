@@ -29,7 +29,7 @@ export function NextPage() {
       title="What's Next"
       lead="A two-week pilot plan: one week measuring real usage, one week improving against that evidence."
     >
-      <p className="label-flag">Any forward-looking number below is a target or hypothesis, not a measured result.</p>
+      <p className="label-flag">Every target below is a goal Tubo intends to earn — not a promise it has already kept.</p>
 
       <section>
         <h2>Week 1 — observe and measure</h2>

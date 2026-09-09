@@ -12,21 +12,20 @@ export interface AuthUser {
 
 const SESSION_TTL = "30 days";
 
-export async function registerUser(email: string, password: string): Promise<{ user: AuthUser }> {
+export async function registerUser(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const id = randomBytes(16).toString("hex");
   const passwordHash = hashPassword(password);
-  // New registrations start unverified (email_verified_at is NULL).
+  // Accounts are verified immediately on signup — no email-verification gate.
   await createUser(id, email, passwordHash);
-  return { user: { id, email, evaluator: false } };
+  const token = randomBytes(32).toString("hex");
+  await createSession(token, id, SESSION_TTL);
+  return { token, user: { id, email, evaluator: false } };
 }
 
 export async function loginUser(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
   const row = await findUserByEmail(email);
   if (!row || !verifyPassword(password, row.password_hash)) {
     throw new AppError({ code: "AUTHENTICATION", message: "invalid email or password", status: 401 });
-  }
-  if (!row.email_verified_at) {
-    throw new AppError({ code: "EMAIL_NOT_VERIFIED", message: "please verify your email before signing in", status: 403 });
   }
   const token = randomBytes(32).toString("hex");
   await createSession(token, row.id, SESSION_TTL);

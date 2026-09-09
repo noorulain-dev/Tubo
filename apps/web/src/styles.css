@@ -54,9 +54,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   display: flex;
   flex-direction: column;
   gap: 22px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .brand { display: flex; gap: 10px; align-items: center; padding: 2px 6px; }
@@ -318,9 +317,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  min-height: 0;
 }
 
 .integration-rail-btn {
@@ -654,7 +651,7 @@ body::before {
 .shell { position: relative; padding: 18px; gap: 0; }
 .shell:has(.sidebar) {
   width: calc(100% - 36px);
-  min-height: calc(100vh - 36px);
+  height: calc(100vh - 36px);
   margin: 18px;
   padding: 0;
   overflow: hidden;
@@ -686,7 +683,7 @@ body::before {
 .dot { box-shadow: 0 0 12px var(--accent); animation: status-pulse 2.4s ease-in-out infinite; }
 @keyframes status-pulse { 50% { opacity: .5; box-shadow: 0 0 20px var(--accent); } }
 
-.main { padding: 26px 32px 60px; background: rgba(7, 17, 31, 0.16); }
+.main { padding: 26px 32px 60px; background: rgba(7, 17, 31, 0.16); overflow-y: auto; min-height: 0; }
 .user-bar { min-height: 52px; border-color: var(--divider); }
 .page-title { font-family: "Space Grotesk", sans-serif; font-size: 26px; }
 .page-subtitle { color: var(--text-2); }

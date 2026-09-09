@@ -36,6 +36,21 @@ function pct(v: number | null): string {
   return v === null ? "—" : `${(v * 100).toFixed(1)}%`;
 }
 
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 export function LandingPage() {
   const { summary, loading } = useEvaluationSummary();
   const o = summary?.official;
@@ -129,7 +144,7 @@ export function LandingPage() {
       <section className="public-section">
         <div className="section-head-row">
           <h2>System evaluation</h2>
-          <Link className="section-link" to="/app/evaluation">
+          <Link className="section-link" to="/evaluation">
             See full evaluation <ArrowRight size={14} aria-hidden />
           </Link>
         </div>
@@ -204,15 +219,17 @@ export function LandingPage() {
           </p>
         ) : (
           <div className="quote-grid">
-            {PILOT_QUOTES.map((q, i) => (
-              <blockquote className="quote-card" key={i}>
-                <p>{q.quote}</p>
-                <footer>
-                  <b>{q.author}</b>
-                  {q.role && <span>{q.role}</span>}
-                  {q.channel && <span>{q.channel}</span>}
-                </footer>
-              </blockquote>
+            {PILOT_QUOTES.map((q) => (
+              <figure className="quote-card" key={q.quote}>
+                <blockquote className="quote-text">{q.quote}</blockquote>
+                <figcaption className="quote-attribution">
+                  <span className="quote-avatar" aria-hidden="true">{initials(q.author)}</span>
+                  <span className="quote-person">
+                    <b>{q.author}</b>
+                    <span>{[q.role, q.channel, fmtDate(q.date)].filter(Boolean).join(" · ")}</span>
+                  </span>
+                </figcaption>
+              </figure>
             ))}
           </div>
         )}

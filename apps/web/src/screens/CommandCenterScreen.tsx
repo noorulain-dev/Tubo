@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, HelpCircle, RefreshCw } from "lucide-react";
+import { useOutletContext } from "react-router-dom";
+import { ArrowRight, CheckCircle2, HelpCircle } from "lucide-react";
 import { useCommandCenter } from "../hooks";
 import { EmptyState, ErrorNotice, Skeleton } from "../components/States";
 import type { AccountRow } from "../types";
@@ -76,7 +77,7 @@ function matchesFilter(row: AccountRow, filter: QueueFilter): boolean {
 
 export function CommandCenterScreen({ onOpenAccount }: { onOpenAccount: (accountId: string) => void }) {
   const { rows, total, loading, error, refresh } = useCommandCenter();
-  const [refreshedAt, setRefreshedAt] = useState<Date>(() => new Date());
+  const { email, onLogout } = useOutletContext<{ email: string; onLogout: () => void }>();
   const [filter, setFilter] = useState<QueueFilter>("all");
 
   const stats = useMemo(() => {
@@ -105,11 +106,6 @@ export function CommandCenterScreen({ onOpenAccount }: { onOpenAccount: (account
     [stats.sorted, filter],
   );
 
-  async function handleRefresh() {
-    await refresh();
-    setRefreshedAt(new Date());
-  }
-
   return (
     <>
       <header className="page-head">
@@ -118,16 +114,14 @@ export function CommandCenterScreen({ onOpenAccount }: { onOpenAccount: (account
           <p className="page-subtitle">Revenue work that needs attention.</p>
         </div>
         <div className="page-head-actions">
-          <span className="page-head-meta">
-            Last refreshed {refreshedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-          </span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void handleRefresh()} disabled={loading}>
-            <RefreshCw size={14} aria-hidden /> Refresh
+          <span className="page-head-meta">{email}</span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void onLogout()}>
+            Log out
           </button>
         </div>
       </header>
 
-      {error != null && <ErrorNotice error={error} onRetry={() => void handleRefresh()} />}
+      {error != null && <ErrorNotice error={error} onRetry={() => void refresh()} />}
 
       <div className="stat-strip" role="list">
         <div className="stat" role="listitem">

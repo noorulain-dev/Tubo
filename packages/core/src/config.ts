@@ -29,6 +29,7 @@ const ConfigSchema = z.object({
   gmailClientSecret: z.string().min(1).optional(),
   gmailRefreshToken: z.string().min(1).optional(),
   gmailRedirectUri: z.string().url().optional(),
+  calendarRedirectUri: z.string().url().optional(),
 
   // Server
   authToken: z.string().min(1).optional(),
@@ -68,6 +69,7 @@ export function loadConfig(
     gmailClientSecret: env.GMAIL_CLIENT_SECRET,
     gmailRefreshToken: env.GMAIL_REFRESH_TOKEN,
     gmailRedirectUri: env.GMAIL_REDIRECT_URI,
+    calendarRedirectUri: env.CALENDAR_REDIRECT_URI,
     authToken: env.AUTH_TOKEN,
     port: env.PORT,
     mode: env.MODE,
@@ -95,7 +97,7 @@ export interface ConfigSections {
   database: { url: string | undefined };
   auth: { token: string | undefined; encryptionKey: string | undefined };
   openai: { apiKey: string | undefined; model: string | undefined; baseUrl: string | undefined; reasoningEffort: AppConfig["openaiReasoningEffort"] };
-  google: { clientId: string | undefined; clientSecret: string | undefined; refreshToken: string | undefined; redirectUri: string | undefined };
+  google: { clientId: string | undefined; clientSecret: string | undefined; refreshToken: string | undefined; redirectUri: string | undefined; calendarRedirectUri: string | undefined };
   hubspot: { accessToken: string | undefined; baseUrl: string | undefined };
   fireflies: { apiKey: string | undefined };
   email: { apiKey: string | undefined; from: string | undefined; baseUrl: string | undefined };
@@ -107,7 +109,7 @@ export function configSections(config: AppConfig): ConfigSections {
     database: { url: config.databaseUrl },
     auth: { token: config.authToken, encryptionKey: config.integrationEncryptionKey },
     openai: { apiKey: config.openaiApiKey, model: config.openaiModel, baseUrl: config.openaiBaseUrl, reasoningEffort: config.openaiReasoningEffort },
-    google: { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, refreshToken: config.gmailRefreshToken, redirectUri: config.gmailRedirectUri },
+    google: { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, refreshToken: config.gmailRefreshToken, redirectUri: config.gmailRedirectUri, calendarRedirectUri: config.calendarRedirectUri },
     hubspot: { accessToken: config.hubspotAccessToken, baseUrl: config.hubspotBaseUrl },
     // Fireflies API key is stored per-user (connections), not as a global env var.
     fireflies: { apiKey: undefined },

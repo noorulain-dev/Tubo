@@ -25,7 +25,7 @@ export const PILOT_QUOTES: PilotQuote[] = [
     date: "2026-09-08",
   },
   {
-    quote: "Tobu caught the little things I often miss after taking back to back client meetings and my brain is fried",
+    quote: "Tubo caught the little things I often miss after taking back to back client meetings and my brain is fried",
     author: "Luis Mussa",
     role: "Customer Success Manager",
     channel: "Slack",

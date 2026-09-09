@@ -5,6 +5,7 @@ import { TuboMark } from "../components/TuboMark";
 const NAV = [
   { to: "/case-study", label: "Case Study" },
   { to: "/ai-collaboration", label: "How I Built It" },
+  { to: "/evaluation", label: "Evaluation" },
   { to: "/next", label: "What's Next" },
 ];
 

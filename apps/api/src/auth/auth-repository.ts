@@ -2,7 +2,10 @@ import { getPool } from "../database/db.js";
 import type { AuthUser } from "./auth-service.js";
 
 export async function createUser(id: string, email: string, passwordHash: string, evaluator = false): Promise<void> {
-  await getPool().query("INSERT INTO users (id, email, password_hash, evaluator) VALUES ($1, $2, $3, $4)", [id, email, passwordHash, evaluator]);
+  await getPool().query(
+    "INSERT INTO users (id, email, password_hash, evaluator, email_verified_at) VALUES ($1, $2, $3, $4, now())",
+    [id, email, passwordHash, evaluator],
+  );
 }
 
 export async function findUserByEmail(email: string): Promise<{ id: string; email: string; password_hash: string; email_verified_at: string | null; evaluator: boolean } | null> {

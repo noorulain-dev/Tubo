@@ -8,7 +8,6 @@ import type { RunView } from "./types";
 import { ProcessScreen } from "./screens/ProcessScreen";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { RunsScreen } from "./screens/RunsScreen";
-import { EvaluationScreen } from "./screens/EvaluationScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { CalendarDrawer } from "./screens/CalendarDrawer";
@@ -20,6 +19,7 @@ import { LandingPage } from "./public/LandingPage";
 import { CaseStudyPage } from "./public/CaseStudyPage";
 import { HowIBuiltItPage } from "./public/HowIBuiltItPage";
 import { NextPage } from "./public/NextPage";
+import { EvaluationPage } from "./public/EvaluationPage";
 import { PrivacyPage } from "./public/PrivacyPage";
 import { NotFoundPage } from "./public/NotFoundPage";
 import { VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage } from "./screens/auth/AuthFlowPages";
@@ -28,6 +28,8 @@ import { VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage } from "./screen
 interface LayoutContext {
   openAudit: (runId: string) => Promise<void>;
   evaluator: boolean;
+  email: string;
+  onLogout: () => void;
 }
 
 function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
@@ -49,12 +51,7 @@ function AppLayout({ user, onLogout }: { user: AuthUser; onLogout: () => void })
     <div className="shell">
       <Sidebar />
       <main className="main">
-        <div className="user-bar">
-          <span className="helper">{user.email}</span>
-          <Button variant="ghost" onClick={() => void onLogout()}>Log out</Button>
-        </div>
-
-        <Outlet context={{ openAudit, evaluator: !!user.evaluator }} />
+        <Outlet context={{ openAudit, evaluator: !!user.evaluator, email: user.email, onLogout }} />
       </main>
       <IntegrationRail />
 
@@ -158,6 +155,7 @@ export default function App() {
         <Route path="/case-study" element={<CaseStudyPage />} />
         <Route path="/ai-collaboration" element={<HowIBuiltItPage />} />
         <Route path="/next" element={<NextPage />} />
+        <Route path="/evaluation" element={<EvaluationPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
 
         {/* Auth */}
@@ -176,7 +174,6 @@ export default function App() {
           <Route path="/app/process" element={<ProcessScreen onAnalyzed={(r: RunView) => openRun(r.id)} />} />
           <Route path="/app/runs" element={<RunsScreen />} />
           <Route path="/app/runs/:runId" element={<RunPage />} />
-          <Route path="/app/evaluation" element={<EvaluationScreen />} />
           <Route path="/app/settings" element={<SettingsScreen />} />
         </Route>
 

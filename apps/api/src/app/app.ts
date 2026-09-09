@@ -9,7 +9,7 @@ import { logger } from "../observability/logger.js";
 import { rateLimit } from "../observability/rate-limit.js";
 import { isDbConfigured, pingDb } from "../database/db.js";
 import { consumePasswordReset, createPasswordReset } from "../auth/verification.js";
-import { consumeVerificationToken, resendVerification, sendVerificationEmail } from "../auth/email-verification.service.js";
+import { consumeVerificationToken, resendVerification } from "../auth/email-verification.service.js";
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "../integrations/connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "../integrations/gmail-oauth.js";
 import { getCalendarLastSync, listCalendarEvents, syncCalendar } from "../integrations/calendar-sync.js";
@@ -199,10 +199,8 @@ export function createApp(opts: CreateAppOptions) {
     if (!email || !password) return c.json(errorEnvelope("VALIDATION", "email and password are required"), 400);
     if (password.length < 8) return c.json(errorEnvelope("VALIDATION", "password must be at least 8 characters"), 400);
     try {
-      const { user } = await registerUser(email, password);
-      // Never block registration on email-delivery failure; the user can resend.
-      await sendVerificationEmail(email, user.id).catch(() => undefined);
-      return c.json({ user, emailVerified: false }, 201);
+      const { token, user } = await registerUser(email, password);
+      return c.json({ token, user }, 201);
     } catch (err) {
       if ((err as { code?: string }).code === "23505") {
         return c.json(errorEnvelope("CONFLICT", "an account with that email already exists"), 409);
@@ -220,7 +218,6 @@ export function createApp(opts: CreateAppOptions) {
       const { token, user } = await loginUser(email, password);
       return c.json({ token, user });
     } catch (err) {
-      if (isAppError(err) && err.code === "EMAIL_NOT_VERIFIED") return handleError(c, err);
       return c.json(errorEnvelope("AUTHENTICATION", "invalid email or password"), 401);
     }
   });

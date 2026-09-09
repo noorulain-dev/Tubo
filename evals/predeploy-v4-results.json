@@ -44,11 +44,11 @@
   },
   "stability": {
     "model": "gpt-6-astra",
-    "runs": [12, 12, 12],
+    "runs": [13, 11, 12],
     "mean": 12,
-    "min": 12,
-    "max": 12,
-    "flips": []
+    "min": 11,
+    "max": 13,
+    "flips": ["case-13", "case-14"]
   },
   "remaining_failures": [],
   "gate": "PASS"

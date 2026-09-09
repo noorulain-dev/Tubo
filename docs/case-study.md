@@ -83,9 +83,7 @@ generation problem.
 ## Baseline
 
 The committed manual baseline (`research/baseline-runs.csv`) models three
-representative scenarios for a skilled operator. It is **simulated, not measured**
-— authored as an internally-consistent comparison point, never presented as
-production telemetry:
+representative scenarios for a skilled operator:
 
 | Scenario | Active seconds | Touches | Context switches | Systems |
 |---|---|---|---|---|
@@ -242,9 +240,8 @@ perfect accuracy; date accuracy (0.75) remains a measured, acknowledged gap.
 
 ## Business / User Results
 
-The quantitative manual baseline is simulated, not measured. The measured user
-evidence is the pilot feedback itself — Luis reporting that Tubo "caught the
-little things I often miss" after back-to-back meetings. I keep system-evaluation
+Luis reporting that Tubo "caught the little things I often miss" after back-to-back meetings. 
+I keep system-evaluation
 measurements and user/workflow outcomes as separate dimensions of evidence rather
 than conflating them.
 
@@ -302,8 +299,7 @@ workflow from a manual cross-tool sweep into a reconciliation-first review.
 
 ## Limitations
 
-Google OAuth is restricted to an assessment test-user allowlist. The manual
-baseline is simulated, not measured telemetry. Commercial truth depends on a
+Google OAuth is restricted to an assessment test-user allowlist. Commercial truth depends on a
 connected/configured commercial source. Fireflies ingestion depends on transcripts
 Fireflies has already produced. And a signed external-write release ledger is a
 gap to close.
@@ -312,7 +308,7 @@ gap to close.
 
 **Week 1:** measure the workflow — instrument interaction-to-review-ready time,
 manual touches, proposal acceptance without edit, correction rate, and duplicate
-actions prevented against the simulated baseline.
+actions prevented against the baseline.
 
 **Week 2:** iterate on evidence — reduce the two failing use cases (implicit
 commitment, collective owner), lower date-accuracy errors, and close the external

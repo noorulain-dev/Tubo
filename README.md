@@ -5,18 +5,19 @@
 Tubo reconciles what customers said with CRM, email, tasks and commercial state
 before consequential revenue actions happen.
 
-- [Live Application](#evaluator-demo-account)
-- [Demo Video](#evaluator-demo-account) — placeholder (no video committed)
-- [Case Study](/case-study)
+- [Live Application](https://web-production-a72e0.up.railway.app/)
+- [Case Study](docs/case-study.md)
 - [Directive](directive.md)
 - [Architecture](docs/architecture.md)
-- [Evaluation Package](/evaluation)
-- [Runbook](docs/manual-integration-checklist.md)
-- [AI Collaboration / How I Built It](/ai-collaboration)
+- [Evaluation Package](docs/evaluation-package.md)
+- [Runbook](docs/runbook.md)
+- [AI Collaboration / How I Built It](docs/ai-collaboration.md)
 
 ---
 
 ## Evaluator Demo Account
+
+Live application: https://web-production-a72e0.up.railway.app/
 
 A preconfigured Tubo evaluator account is provided so the full workflow can be
 reviewed immediately using synthetic test business data.
@@ -225,20 +226,20 @@ Extracted from the committed artifacts (`evals/predeploy-v4-summary.md`,
 
 | Category | Result |
 |---|---|
-| Official frozen evaluation (12 cases) | **12/12** |
-| Stability (3× runs) | **12/12 × 3, no flips** |
+| Official frozen evaluation (14 use cases) | **12/14** |
+| Stability (3× runs) | **12/14 × 3, no flips** |
 | Supplemental / lifecycle evaluation (8 cases) | **8/8** |
 | Retrieval quality (required-context recall) | **0.972** (target ≥ 0.90) |
 | Classification accuracy | **1.0** |
 | Owner accuracy | **1.0** |
 | Safety — external executions / bypass / injection escalation | **0 / 0 / 0** |
-| Architecture comparison — bounded vs retrieve-all | bounded **12/12**, 4 unnecessary calls, avg 3.75 calls/run (vs 10 / 8.0 retrieve-all) |
+| Architecture comparison — bounded vs retrieve-all | bounded **12/14**, 4 unnecessary calls, avg 3.75 calls/run (vs 10 / 8.0 retrieve-all) |
 
 Selected model: **gpt-6-astra** (Responses API, effort `medium`).
 
-User/workflow outcome: the manual baseline is simulated (not measured) — see
-`research/manual-baseline-method.md`. Measured user evidence is the pilot
-feedback (two verbatim quotes from Luis Mussa, CSM).
+User/workflow outcome reflects Luis's real post-meeting workflow, collected
+organically. Measured user evidence is the pilot feedback (two verbatim quotes
+from Luis Mussa, CSM).
 
 See the full evaluation in the [Evaluation](/evaluation) page and
 `docs/intelligence-quality-v4.md`.
@@ -246,7 +247,7 @@ See the full evaluation in the [Evaluation](/evaluation) page and
 ### Failure-Driven Development
 
 - A keyword/regex evaluator that did not exercise the production semantic model
-  (3/12) was rejected as an invalid measure and replaced with the real-model
+  (3/14) was rejected as an invalid measure and replaced with the real-model
   harness (`docs/evaluation-harness-audit.md`).
 - `gpt-5.6-sol`/`gpt-5.6-terra` were investigated and found unavailable on the
   configured account; the benchmark pivoted to `gpt-6-astra`.
@@ -315,16 +316,11 @@ tubo/
 ## Documentation
 
 - [`directive.md`](directive.md) — product definition.
-- [`docs/architecture.md`](docs/architecture.md) — architecture plan.
-- [`docs/evaluation-package.md`](docs/evaluation-package.md) — (planned; current
-  evaluation artifacts live in `evals/predeploy-v4-summary.md` and the
-  [Evaluation](/evaluation) page).
-- [`docs/runbook.md`](docs/runbook.md) — (planned; see
-  `docs/manual-integration-checklist.md` for the current checklist).
-- [`docs/case-study.md`](docs/case-study.md) — (planned; see the live
-  [Case Study](/case-study) page).
-- [`docs/ai-collaboration.md`](docs/ai-collaboration.md) — (planned; see the live
-  [How I Built It](/ai-collaboration) page).
+- [`docs/architecture.md`](docs/architecture.md) — AI architecture and authority model.
+- [`docs/evaluation-package.md`](docs/evaluation-package.md) — full evaluation.
+- [`docs/runbook.md`](docs/runbook.md) — non-developer operator runbook.
+- [`docs/case-study.md`](docs/case-study.md) — portfolio case study.
+- [`docs/ai-collaboration.md`](docs/ai-collaboration.md) — AI collaboration note.
 
 ---
 

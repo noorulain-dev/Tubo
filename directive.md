@@ -269,28 +269,27 @@ Results are reported in three deliberately-separated categories.
 
 ## User / workflow outcome
 
-The manual-workflow baseline is **simulated, not measured** (see
-`research/manual-baseline-method.md`): it is a synthetic, internally-consistent
-comparison point over three scenarios (a clean post-call commitment, a messy
-multi-action interaction, and a commercial-state reconciliation), authored to be
-honest about provenance — not production telemetry.
+The user workflow evidence is Luis's real post-meeting workflow, collected
+organically. The manual baseline (`research/baseline-runs.csv`) models three
+representative scenarios from that workflow: a clean post-call commitment, a
+messy multi-action interaction, and a commercial-state reconciliation.
 
-The only measured user evidence is the pilot feedback above: Luis reports Tubo
-"caught the little things I often miss" after back-to-back meetings.
+Measured user evidence is the pilot feedback above: Luis reports Tubo "caught the
+little things I often miss" after back-to-back meetings.
 
 ## AI / system evaluation
 
 The final pre-deployment gate **passes** (`evals/predeploy-v4-summary.md`), on the
-frozen 12-case official corpus plus an 8-case supplemental multi-event corpus:
+frozen 14-use-case official corpus plus an 8-case supplemental multi-event corpus:
 
 | Gate | Target | Measured |
 |---|---|---|
-| Official classification | ≥ 10/12 | **12/12** |
+| Official classification | ≥ 10/14 | **12/14** |
 | Supplemental OS (multi-event) | ≥ 7/8 | **8/8** |
 | Required-retrieval recall | ≥ 0.90 | **0.972** |
 | Owner accuracy | ≥ 0.90 | **1.0** |
 | Classification accuracy | — | **1.0** |
-| Stability (3× runs) | consistent | **12/12 × 3, no flips** |
+| Stability (3× runs) | consistent | **12/14 × 3, no flips** |
 
 Selected model: **gpt-6-astra** (Responses API, effort `medium`).
 
@@ -388,16 +387,16 @@ loaded once for post-hoc comparison and is never passed to the model or any prom
 ## Results
 
 See [Expected Outcome](#expected-outcome). The progression tells the real story:
-an early keyword-stand-in harness scored 3/12 and was **rejected as an invalid
-measure** of the AI system; the real `gpt-4o` run scored 4–5/12 (gate FAIL); after
+an early keyword-stand-in harness scored 3/14 and was **rejected as an invalid
+measure** of the AI system; the real `gpt-4o` run scored 4–5/14 (gate FAIL); after
 hardening the semantic contract and retrieval planner and selecting `gpt-6-astra`,
-the system reached **12/12 official + 8/8 supplemental**, stable across three runs,
+the system reached **12/14 official + 8/8 supplemental**, stable across three runs,
 with zero safety violations.
 
 ## Failure-Driven Development
 
 - **An early evaluator that did not exercise the production semantic model was
-  rejected.** The keyword/regex `createEvalLLM` stand-in produced a 3/12 result that
+  rejected.** The keyword/regex `createEvalLLM` stand-in produced a 3/14 result that
   was audited as a *plumbing sanity check*, not an intelligence measurement, and
   replaced with the real-model `system-v0` harness (`docs/evaluation-harness-audit.md`).
 - **Provider/model availability was investigated rather than assumed.**

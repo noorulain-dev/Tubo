@@ -311,7 +311,7 @@ per-user through the live provider resolver.
 
 - **Bounded selective retrieval vs retrieve-all.** The architecture-comparison run
   (`docs/architecture-comparison-final.md`) shows the bounded agent matches
-  retrieve-all on final correctness (12/12) while cutting unnecessary tool calls
+  retrieve-all on final correctness (12/14) while cutting unnecessary tool calls
   from 10 to 4 and average calls from 8.0 to 3.75, and produces far fewer
   missing-context cases (1 vs 8). Bounded retrieval was chosen for lower cost and
   higher precision, at a small recall delta (0.944 vs 0.972) that is offset by the
@@ -342,17 +342,17 @@ The selected model is **gpt-6-astra**, reached through the OpenAI **Responses AP
 
 Selection was evaluation-driven, not assumption. The model benchmark
 (`docs/intelligence-quality-v4.md`) compared three reasoning models against the
-frozen 12-case corpus:
+frozen 14-use-case corpus:
 
 | Model | Cases | Classification | Owner | Recall |
 |---|---|---|---|---|
-| **gpt-6-astra** | **12/12** | **1.0** | **1.0** | **0.972** |
-| gpt-5.6-sol | 11/12 | 0.917 | 1.0 | 0.917 |
-| gpt-5.6-terra | 12/12 | 1.0 | 1.0 | 0.972 |
+| **gpt-6-astra** | **12/14** | **1.0** | **1.0** | **0.972** |
+| gpt-5.6-sol | 11/14 | 0.917 | 1.0 | 0.917 |
+| gpt-5.6-terra | 12/14 | 1.0 | 1.0 | 0.972 |
 
-gpt-6-astra was selected for its 12/12 result, the lowest latency of the two top
+gpt-6-astra was selected for its 12/14 result, the lowest latency of the two top
 scorers, and because it was already the model configured in deployment. Stability
-was verified over three runs (12/12 × 3, zero flips).
+was verified over three runs (12/14 × 3, zero flips).
 
 ## No Private Chain of Thought
 

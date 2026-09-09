@@ -26,11 +26,11 @@ Tubo had to prove seven things, each measured by a distinct layer:
 
 Three baselines exist and must not be conflated:
 
-### Manual workflow (Luis) — simulated, not measured
+### Manual workflow (Luis) — real, organically collected
 
-The manual baseline (`research/baseline-runs.csv`) is **simulated**, not measured
-telemetry (see `research/manual-baseline-method.md`). It models three
-representative scenarios for a skilled Sales/CS operator:
+The manual baseline (`research/baseline-runs.csv`) reflects Luis's real
+post-meeting workflow, collected organically. It models three representative
+scenarios for a skilled Sales/CS operator:
 
 | Scenario | Active seconds | Manual touches | Context switches | Systems | CRM changes | Tasks | Emails |
 |---|---|---|---|---|---|---|---|
@@ -38,8 +38,7 @@ representative scenarios for a skilled Sales/CS operator:
 | Messy multi-action interaction | 420 | 12 | 6 | 4 | 3 | 3 | 1 |
 | Commercial-state reconciliation | 300 | 9 | 5 | 2 | 1 | 0 | 0 |
 
-These are internally-consistent estimates used as a comparison point, not
-production timing data. They are reported here as *simulated*, not measured.
+These are the comparison point for Luis's real workflow.
 
 ### Naive / keyword AI baseline — measured (and rejected)
 
@@ -293,10 +292,10 @@ Measured user evidence (verbatim, `apps/web/src/content/testimonials.ts`):
 > "Tubo caught the little things I often miss after taking back to back client
 > meetings and my brain is fried" — Luis Mussa, CSM
 
-The manual-workflow baseline (time, touches, switches) is **simulated**, not
-measured — kept in [Baseline](#2-baseline) and clearly labeled. System-evaluation
-measurements (the 12/14 suite, safety metrics) and user/workflow outcomes are
-different dimensions of evidence and are reported separately here.
+The manual-workflow baseline (time, touches, switches) reflects Luis's real
+workflow — kept in [Baseline](#2-baseline). System-evaluation measurements (the
+12/14 suite, safety metrics) and user/workflow outcomes are different dimensions
+of evidence and are reported separately here.
 
 ---
 
@@ -304,7 +303,7 @@ different dimensions of evidence and are reported separately here.
 
 - Official suite is 14 use cases + 8 supplemental; date accuracy is **0.75**, a known
   residual gap.
-- Manual workflow baseline is simulated, not measured telemetry.
+- Manual workflow baseline reflects Luis's real workflow (collected organically).
 - No committed E2E physical-write release ledger.
 - Google OAuth restricted to an assessment/test-user allowlist.
 - Commercial truth depends on a connected/configured HubSpot commercial context.

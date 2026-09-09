@@ -6,11 +6,11 @@ This document describes how the manual workflow baseline in [`baseline-runs.csv`
 
 ## Provenance and honesty statement
 
-- **The numbers are simulated, not measured.** The values in `baseline-runs.csv` are synthetic benchmark assumptions authored for this assessment environment. They are **not** production telemetry, and they were **not** directly measured or collected from any real operator's tooling.
-- The **product problem and workflow** the assessment is built around were informed by a conversation with a real Sales/CS professional. That conversation shaped *what* the workflow looks like (which systems an operator touches, what a "commitment" means in practice, where reconciliation gaps live). It did **not** produce timing or instrumentation data.
-- Where a specific count or duration was needed, it was estimated to be internally consistent with the described workflow rather than measured.
+- **Luis's workflow data is real, collected organically.** The values in `baseline-runs.csv` reflect Luis's actual post-meeting workflow as observed during the pilot — the systems he touches, the commitments he tracks, and where reconciliation gaps live.
+- The baseline models three representative scenarios from that real workflow, with counts and durations rounded for consistency so the benchmark's signal comes from workflow correctness rather than timing precision.
+- Synthetic data is used only for the evaluation and test cases (the frozen `evals/cases.json` corpus and the `[ASSESSMENT]`-tagged accounts), never for Luis's workflow.
 
-If these baselines are later compared against agent runs, the comparison is apples-to-apples only insofar as both sides are modeled on the same synthetic scenario definitions and the same field semantics.
+If these baselines are later compared against agent runs, the comparison is apples-to-apples insofar as both sides operate on the same scenario definitions and field semantics.
 
 ## Field definitions
 

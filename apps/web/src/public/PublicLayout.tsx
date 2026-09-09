@@ -3,6 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import { TuboMark } from "../components/TuboMark";
 
 const NAV = [
+  { to: "/features", label: "Features" },
   { to: "/case-study", label: "Case Study" },
   { to: "/ai-collaboration", label: "How I Built It" },
   { to: "/evaluation", label: "Evaluation" },

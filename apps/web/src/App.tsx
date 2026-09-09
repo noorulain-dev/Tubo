@@ -16,6 +16,7 @@ import { AccountsScreen } from "./screens/AccountsScreen";
 import { AccountScreen } from "./screens/AccountScreen";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LandingPage } from "./public/LandingPage";
+import { FeaturesPage } from "./public/FeaturesPage";
 import { CaseStudyPage } from "./public/CaseStudyPage";
 import { HowIBuiltItPage } from "./public/HowIBuiltItPage";
 import { NextPage } from "./public/NextPage";
@@ -152,6 +153,7 @@ export default function App() {
       <Routes>
         {/* Public site */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
         <Route path="/case-study" element={<CaseStudyPage />} />
         <Route path="/ai-collaboration" element={<HowIBuiltItPage />} />
         <Route path="/next" element={<NextPage />} />

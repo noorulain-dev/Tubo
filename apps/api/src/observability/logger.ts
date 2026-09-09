@@ -1,4 +1,5 @@
 import pino from "pino";
+import { loadConfig } from "../shared/core.js";
 
 /**
  * Production structured application logger (pino).
@@ -35,7 +36,7 @@ const REDACT_PATHS = [
 ];
 
 export const logger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
+  level: loadConfig().logLevel,
   redact: { paths: REDACT_PATHS, censor: "[redacted]" },
   base: { service: "revexec-api" },
   // Deterministic timestamp the application can rely on in structured logs.

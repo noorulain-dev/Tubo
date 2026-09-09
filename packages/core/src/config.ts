@@ -34,6 +34,13 @@ const ConfigSchema = z.object({
   authToken: z.string().min(1).optional(),
   port: z.coerce.number().int().positive().default(3000),
   mode: z.enum(["sample", "live"]).default("sample"),
+
+  // Ops / infra
+  calendarWebhookUrl: z.string().url().optional(),
+  integrationEncryptionKey: z.string().min(1).optional(),
+  resendApiKey: z.string().min(1).optional(),
+  emailFrom: z.string().optional(),
+  appBaseUrl: z.string().optional(),
 });
 export type AppConfig = z.infer<typeof ConfigSchema>;
 
@@ -64,6 +71,11 @@ export function loadConfig(
     authToken: env.AUTH_TOKEN,
     port: env.PORT,
     mode: env.MODE,
+    calendarWebhookUrl: env.CALENDAR_WEBHOOK_URL,
+    integrationEncryptionKey: env.INTEGRATION_ENCRYPTION_KEY,
+    resendApiKey: env.RESEND_API_KEY,
+    emailFrom: env.EMAIL_FROM,
+    appBaseUrl: env.APP_BASE_URL,
   });
 
   if (!parsed.success) {
@@ -75,6 +87,33 @@ export function loadConfig(
   }
 
   return parsed.data;
+}
+
+/** Typed, feature-scoped view of the flat validated config. Never exposes
+ * server secrets to the frontend (only server code imports this module). */
+export interface ConfigSections {
+  database: { url: string | undefined };
+  auth: { token: string | undefined; encryptionKey: string | undefined };
+  openai: { apiKey: string | undefined; model: string | undefined; baseUrl: string | undefined; reasoningEffort: AppConfig["openaiReasoningEffort"] };
+  google: { clientId: string | undefined; clientSecret: string | undefined; refreshToken: string | undefined; redirectUri: string | undefined };
+  hubspot: { accessToken: string | undefined; baseUrl: string | undefined };
+  fireflies: { apiKey: string | undefined };
+  email: { apiKey: string | undefined; from: string | undefined; baseUrl: string | undefined };
+  app: { port: number; mode: AppConfig["mode"]; nodeEnv: AppConfig["nodeEnv"]; logLevel: AppConfig["logLevel"] };
+}
+
+export function configSections(config: AppConfig): ConfigSections {
+  return {
+    database: { url: config.databaseUrl },
+    auth: { token: config.authToken, encryptionKey: config.integrationEncryptionKey },
+    openai: { apiKey: config.openaiApiKey, model: config.openaiModel, baseUrl: config.openaiBaseUrl, reasoningEffort: config.openaiReasoningEffort },
+    google: { clientId: config.gmailClientId, clientSecret: config.gmailClientSecret, refreshToken: config.gmailRefreshToken, redirectUri: config.gmailRedirectUri },
+    hubspot: { accessToken: config.hubspotAccessToken, baseUrl: config.hubspotBaseUrl },
+    // Fireflies API key is stored per-user (connections), not as a global env var.
+    fireflies: { apiKey: undefined },
+    email: { apiKey: config.resendApiKey, from: config.emailFrom, baseUrl: config.appBaseUrl },
+    app: { port: config.port, mode: config.mode, nodeEnv: config.nodeEnv, logLevel: config.logLevel },
+  };
 }
 
 /** A token that is obviously an unconfigured placeholder. */

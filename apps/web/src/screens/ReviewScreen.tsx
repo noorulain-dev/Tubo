@@ -48,7 +48,7 @@ function firstEvidence(f: ReconciliationFinding): string | undefined {
   return f.evidence?.[0]?.text;
 }
 
-export function ReviewScreen({ run, onUpdated, onAudit }: { run: RunView; onUpdated: (r: RunView) => void; onAudit: () => void }) {
+export function ReviewScreen({ run, onUpdated, onAudit, externalExecutionDisabled }: { run: RunView; onUpdated: (r: RunView) => void; onAudit: () => void; externalExecutionDisabled?: boolean }) {
   const { approve, reject, edit, execute, pending, error } = useRunMutations(run.id, onUpdated);
 
   const semantic = semanticItems(run.semantic);
@@ -233,8 +233,11 @@ export function ReviewScreen({ run, onUpdated, onAudit }: { run: RunView; onUpda
                           <Button variant="danger" disabled={pending} onClick={() => void reject(p.id)}>Reject</Button>
                         </>
                       )}
-                      {p.status === "approved" && (
+                      {p.status === "approved" && !externalExecutionDisabled && (
                         <Button variant="primary" disabled={pending} onClick={() => void execute(p.id)}>Execute</Button>
+                      )}
+                      {p.status === "approved" && externalExecutionDisabled && (
+                        <span className="item-meta">External execution is disabled in the evaluator workspace.</span>
                       )}
                       {p.execution?.status && <span className="item-meta">Result: {p.execution.status}</span>}
                     </div>
@@ -264,7 +267,7 @@ export function ReviewScreen({ run, onUpdated, onAudit }: { run: RunView; onUpda
         </Section>
       )}
 
-      <p className="helper">Revenue Execution OS never sends customer email automatically — drafts only.</p>
+      <p className="helper">Tubo never sends customer email automatically — drafts only.</p>
     </>
   );
 }

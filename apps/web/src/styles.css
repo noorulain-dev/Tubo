@@ -306,3 +306,320 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 .plan { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .plan:last-child { border-bottom: none; }
 .plan-head { font-size: 13.5px; margin-bottom: 6px; }
+
+/* Integration rail (right) */
+.integration-rail {
+  width: 60px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.integration-rail-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.integration-rail-btn:hover { background: var(--surface-2); color: var(--text); }
+.integration-rail-btn.selected { background: var(--green-soft); color: var(--green); border-color: var(--green-border); }
+.integration-rail-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--green-soft);
+  border-color: var(--green);
+}
+
+/* Accessible tooltip (shows on hover + keyboard focus) */
+.integration-rail-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text);
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+  z-index: 70;
+}
+.integration-rail-btn:hover::after,
+.integration-rail-btn:focus-visible::after { opacity: 1; }
+
+.integration-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  border: 1.5px solid var(--surface);
+}
+.integration-dot.connected { background: var(--green); }
+
+/* Integration side panel (desktop: slide-in right; mobile: bottom sheet) */
+.integration-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 90vw);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+}
+.integration-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.integration-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  font-size: 14.5px;
+}
+.integration-panel-body { padding: 18px; overflow-y: auto; }
+.integration-panel-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-2);
+  margin-bottom: 14px;
+}
+.integration-panel-status .integration-dot { position: static; border-color: var(--border); }
+
+/* Mobile/tablet trigger + sheet */
+.integration-mobile-trigger {
+  display: none;
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  place-items: center;
+  box-shadow: var(--shadow-md);
+  z-index: 44;
+}
+.integration-mobile-trigger:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--green-soft), var(--shadow-md); }
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.35);
+  z-index: 48;
+}
+.integration-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 70vh;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  overflow-y: auto;
+}
+.integration-sheet-list { display: flex; flex-direction: column; padding: 6px 0 16px; }
+.integration-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--text);
+  cursor: pointer;
+}
+.integration-sheet-item:hover { background: var(--surface-2); }
+.integration-sheet-item:focus-visible { outline: none; background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--green); }
+.integration-sheet-item .integration-dot { position: static; border-color: var(--border); }
+
+/* Mobile/tablet: hide the thin rail, show the trigger + sheet layout */
+@media (max-width: 900px) {
+  .integration-rail { display: none; }
+  .integration-mobile-trigger { display: grid; }
+  .integration-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 70vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* Calendar panel (right rail) */
+.calendar-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.cal-panel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+.cal-panel-today { font-size: 15px; font-weight: 650; }
+.cal-panel-date { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+.cal-panel-navbtns { display: flex; align-items: center; gap: 4px; }
+
+/* All-day row */
+.cal-allday {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.cal-allday-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.cal-allday-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-3); flex-shrink: 0;
+}
+.cal-allday-title { font-weight: 550; color: var(--text); }
+
+.cal-empty { padding: 24px 0; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* Time grid */
+.cal-timeline {
+  position: relative;
+  border-left: 1px solid var(--border);
+  margin-left: 46px;
+}
+.cal-tick { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border); }
+.cal-tick-label {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: -7px;
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.cal-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--green);
+  z-index: 2;
+  pointer-events: none;
+}
+.cal-now::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.cal-event {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  border-left: 3px solid var(--green);
+  background: var(--green-soft);
+  border-radius: 6px;
+  padding: 6px 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.cal-event-time { font-size: 11px; color: var(--green); font-weight: 600; }
+.cal-event-title { font-size: 12.5px; font-weight: 600; color: var(--text); margin-top: 1px; }
+.cal-event-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.cal-event-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; color: var(--text-2); text-decoration: none;
+}
+.cal-event-link { color: var(--blue); font-weight: 550; }
+.cal-event-link:hover { text-decoration: underline; }
+
+/* Footer health */
+.cal-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.cal-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.cal-health .integration-dot { position: static; border-color: var(--border); flex-shrink: 0; }
+
+/* State + skeleton */
+.calendar-panel-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 28px 8px;
+  color: var(--text-3);
+}
+.cal-state-title { font-weight: 650; font-size: 13.5px; color: var(--text-2); margin: 0; }
+
+.cal-skeleton { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.cal-skel-line { height: 12px; border-radius: 4px; background: var(--surface-2); width: 70%; }
+.cal-skel-block { height: 120px; border-radius: var(--radius-sm); background: var(--surface-2); }

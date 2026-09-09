@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { loadConfig } from "../shared/core.js";
 
 const ALGO = "aes-256-gcm";
 const PREFIX = "enc:v1:";
@@ -10,7 +11,7 @@ const KEY_LENGTH = 32;
  * disabled → secrets stored plaintext, for backward compatibility).
  */
 export function getEncryptionKey(): Buffer | undefined {
-  const raw = process.env.INTEGRATION_ENCRYPTION_KEY;
+  const raw = loadConfig().integrationEncryptionKey;
   if (!raw) return undefined;
   const key = Buffer.from(raw, "base64");
   if (key.length !== KEY_LENGTH) {

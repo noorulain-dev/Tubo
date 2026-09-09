@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 import type { Classification, Mode, RiskLevel, RunStatus } from "./types";
 
 export function Button(props: {
@@ -103,25 +104,25 @@ export function EmptyState(props: { title: string; hint?: string }) {
   );
 }
 
-export function Sidebar(props: { active: string; onNavigate: (view: string) => void }) {
-  const items: { key: string; label: string; group: string }[] = [
-    { key: "command-center", label: "Command Center", group: "Overview" },
-    { key: "accounts", label: "Accounts", group: "Overview" },
-    { key: "process", label: "Process Interaction", group: "Overview" },
-    { key: "runs", label: "Runs", group: "Overview" },
-    { key: "evaluation", label: "Evaluation", group: "Insights" },
-    { key: "settings", label: "Settings", group: "System" },
+export function Sidebar() {
+  const items: { to: string; label: string; group: string }[] = [
+    { to: "/app/command-center", label: "Command Center", group: "Overview" },
+    { to: "/app/accounts", label: "Accounts", group: "Overview" },
+    { to: "/app/process", label: "Process Interaction", group: "Overview" },
+    { to: "/app/runs", label: "Runs", group: "Overview" },
+    { to: "/app/evaluation", label: "Evaluation", group: "Insights" },
+    { to: "/app/settings", label: "Settings", group: "System" },
   ];
   let lastGroup = "";
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark">
-          <img src="/image.png" alt="Revenue Execution OS" />
+          <img src="/image.png" alt="Tubo" />
         </div>
         <div>
-          <div className="brand-name">Revenue Execution OS</div>
-          <div className="brand-tag">Turn conversations into trusted state</div>
+          <div className="brand-name">Tubo</div>
+          <div className="brand-tag">Revenue Execution OS</div>
         </div>
       </div>
       <nav className="nav">
@@ -129,11 +130,11 @@ export function Sidebar(props: { active: string; onNavigate: (view: string) => v
           const header = it.group !== lastGroup ? <div className="nav-group">{it.group}</div> : null;
           lastGroup = it.group;
           return (
-            <div key={it.key}>
+            <div key={it.to}>
               {header}
-              <button className={`nav-item ${props.active === it.key ? "active" : ""}`} onClick={() => props.onNavigate(it.key)}>
+              <NavLink to={it.to} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
                 {it.label}
-              </button>
+              </NavLink>
             </div>
           );
         })}

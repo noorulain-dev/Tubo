@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getPool } from "../database/db.js";
+import { loadConfig } from "../shared/core.js";
 import { getCalendarRefreshToken } from "./connections.js";
 import { exchangeGmailRefreshToken } from "./gmail-oauth.js";
 
@@ -18,8 +19,8 @@ export interface WatchChannel {
 export async function registerWatch(userId: string, webhookUrl: string): Promise<WatchChannel> {
   const refreshToken = await getCalendarRefreshToken(userId);
   if (!refreshToken) throw new Error("Google Calendar is not connected");
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const clientId = loadConfig().gmailClientId;
+  const clientSecret = loadConfig().gmailClientSecret;
   if (!clientId || !clientSecret) throw new Error("Google OAuth client is not configured");
 
   const { accessToken } = await exchangeGmailRefreshToken({ clientId, clientSecret, refreshToken });

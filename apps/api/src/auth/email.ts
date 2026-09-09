@@ -1,4 +1,4 @@
-import { AppError } from "../shared/core.js";
+import { AppError, loadConfig } from "../shared/core.js";
 import { logger } from "../observability/logger.js";
 
 /**
@@ -57,11 +57,11 @@ export class ResendEmailProvider implements TransactionalEmailProvider {
 
 /** Choose the configured provider; in production a missing provider is an error. */
 export function getEmailProvider(): TransactionalEmailProvider {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (apiKey) {
-    return new ResendEmailProvider(apiKey, process.env.EMAIL_FROM ?? "Revenue Execution OS <onboarding@resend.dev>");
+  const cfg = loadConfig();
+  if (cfg.resendApiKey) {
+    return new ResendEmailProvider(cfg.resendApiKey, cfg.emailFrom ?? "Revenue Execution OS <onboarding@resend.dev>");
   }
-  if (process.env.NODE_ENV === "production") {
+  if (cfg.nodeEnv === "production") {
     // Production must not silently pretend an email was sent.
     throw new AppError({ code: "PROVIDER_ERROR", message: "no transactional email provider configured (set RESEND_API_KEY)" });
   }
@@ -69,5 +69,5 @@ export function getEmailProvider(): TransactionalEmailProvider {
 }
 
 export function appBaseUrl(): string {
-  return (process.env.APP_BASE_URL ?? "http://localhost:5173").replace(/\/$/, "");
+  return (loadConfig().appBaseUrl ?? "http://localhost:5173").replace(/\/$/, "");
 }

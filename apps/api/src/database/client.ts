@@ -1,12 +1,13 @@
 import pg, { type PoolClient } from "pg";
 import { logger } from "../observability/logger.js";
+import { loadConfig } from "../shared/core.js";
 
 const { Pool } = pg;
 
 let pool: InstanceType<typeof Pool> | null = null;
 
 export function isDbConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(loadConfig().databaseUrl);
 }
 
 /** The single Postgres connection pool for the whole API. Feature modules must
@@ -14,7 +15,7 @@ export function isDbConfigured(): boolean {
  * helpers below). */
 export function getPool(): InstanceType<typeof Pool> {
   if (!pool) {
-    const url = process.env.DATABASE_URL;
+    const url = loadConfig().databaseUrl;
     if (!url) {
       throw new Error("DATABASE_URL is not set. Configure it in .env before starting the API.");
     }

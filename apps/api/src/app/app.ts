@@ -2,16 +2,17 @@ import { randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { FirefliesProvider, isAppError, type IntegrationStatus } from "../shared/core.js";
+import { FirefliesProvider, isAppError, loadConfig, type IntegrationStatus } from "../shared/core.js";
 import { bearerAuth } from "../auth/auth.js";
 import { loginUser, logout, registerUser, type AuthUser } from "../auth/auth-service.js";
 import { logger } from "../observability/logger.js";
 import { rateLimit } from "../observability/rate-limit.js";
 import { isDbConfigured, pingDb } from "../database/db.js";
-import { consumePasswordReset, consumeVerificationToken, createPasswordReset, resendVerification, sendVerificationEmail } from "../auth/verification.js";
+import { consumePasswordReset, createPasswordReset } from "../auth/verification.js";
+import { consumeVerificationToken, resendVerification, sendVerificationEmail } from "../auth/email-verification.service.js";
 import { getConnectionsStatus, getFirefliesApiKey, removeConnection, setConnection, type ConnectionProvider } from "../integrations/connections.js";
 import { buildGmailAuthorizationUrl, exchangeGmailAuthCode, GOOGLE_SCOPES } from "../integrations/gmail-oauth.js";
-import { listCalendarEvents, syncCalendar } from "../integrations/calendar-sync.js";
+import { getCalendarLastSync, listCalendarEvents, syncCalendar } from "../integrations/calendar-sync.js";
 import { getChannelUser, registerWatch } from "../integrations/calendar-watch.js";
 import { enqueue } from "../jobs/jobs.js";
 import { getSnapshot, listAccountEvents, listAccounts } from "../accounts/account-intelligence.js";
@@ -37,18 +38,34 @@ function errorEnvelope(code: string, message: string, details?: unknown, request
   return { error: { code, message, ...(details !== undefined ? { details } : {}), ...(requestId ? { requestId } : {}) } };
 }
 
+/** Normalize any thrown value into a stable, non-leaking API error. */
+function normalizeError(err: unknown): { code: string; status: number; message: string; details?: unknown } {
+  if (isAppError(err)) {
+    return { code: err.code, status: err.statusCode, message: err.message, details: err.safeDetails };
+  }
+  const pgCode = (err as { code?: string } | undefined)?.code;
+  if (pgCode === "23505") return { code: "CONFLICT", status: 409, message: "resource already exists" };
+  if (pgCode === "23503") return { code: "CONFLICT", status: 409, message: "related resource is missing" };
+  if (pgCode === "23502") return { code: "VALIDATION", status: 400, message: "a required field is missing" };
+  // Fallback: never expose the raw error (stack, SQL, tokens, or credentials).
+  const production = loadConfig().nodeEnv === "production";
+  return {
+    code: "INTERNAL_ERROR",
+    status: 500,
+    message: production ? "internal server error" : err instanceof Error ? err.message : "internal server error",
+  };
+}
+
 function handleError(c: Context, err: unknown): Response {
   const requestId = c.get("requestId") as string | undefined;
-  if (isAppError(err)) {
-    return c.json(errorEnvelope(err.code, err.message, err.details, requestId), err.status as ContentfulStatusCode);
+  const norm = normalizeError(err);
+  if (norm.status >= 500) {
+    logger.error(
+      { event: "error", requestId, error_code: norm.code, message: err instanceof Error ? err.message : String(err) },
+      "unhandled request error",
+    );
   }
-  // Never leak stack traces or internal messages in production.
-  const production = process.env.NODE_ENV === "production";
-  logger.error(
-    { event: "error", requestId, error_code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) },
-    "unhandled request error",
-  );
-  return c.json(errorEnvelope("INTERNAL_ERROR", production ? "internal server error" : err instanceof Error ? err.message : "internal server error", undefined, requestId), 500);
+  return c.json(errorEnvelope(norm.code, norm.message, norm.details, requestId), norm.status as ContentfulStatusCode);
 }
 
 function auditView(run: RunView) {
@@ -501,6 +518,11 @@ export function createApp(opts: CreateAppOptions) {
   });
 
   app.post("/proposals/:proposalId/execute", async (c) => {
+    // Evaluator (demo) workspace is read-only for external execution: never allow
+    // an evaluator account to mutate a real HubSpot/Gmail integration.
+    if (currentUser(c)?.evaluator) {
+      return c.json(errorEnvelope("PERMISSION", "External execution is disabled in the evaluator workspace."), 403);
+    }
     const svc = await findProposalService(c, c.req.param("proposalId"));
     if (!svc) return c.json(errorEnvelope("NOT_FOUND", "proposal not found"), 404);
     try {
@@ -695,14 +717,17 @@ export function createApp(opts: CreateAppOptions) {
     const start = c.req.query("start");
     const end = c.req.query("end");
     if (!start || !end) return c.json(errorEnvelope("VALIDATION", "start and end are required"), 400);
-    const events = await listCalendarEvents(user.id, new Date(start), new Date(end));
-    return c.json({ events });
+    const [events, lastSyncAt] = await Promise.all([
+      listCalendarEvents(user.id, new Date(start), new Date(end)),
+      getCalendarLastSync(user.id),
+    ]);
+    return c.json({ events, lastSyncAt });
   });
 
   app.post("/integrations/google-calendar/watch", async (c) => {
     const user = currentUser(c);
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
-    const webhookUrl = process.env.CALENDAR_WEBHOOK_URL;
+    const webhookUrl = loadConfig().calendarWebhookUrl;
     if (!webhookUrl) return c.json(errorEnvelope("CONFIG", "CALENDAR_WEBHOOK_URL is not set (a public HTTPS address is required)"), 400);
     try {
       const channel = await registerWatch(user.id, webhookUrl);

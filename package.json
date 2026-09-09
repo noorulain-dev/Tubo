@@ -31,6 +31,7 @@
     "assessment:prepare": "npm run assessment:prepare --workspace @revexec/api",
     "assessment:cleanup": "npm run assessment:cleanup --workspace @revexec/api",
     "assessment:refresh-account": "npm run assessment:refresh-account --workspace @revexec/api",
+    "evaluator:provision": "npm run evaluator:provision --workspace @revexec/api",
     "verify:step50": "npm run test --workspace @revexec/core && npm run test --workspace @revexec/api",
     "live:check": "npm run live:check --workspace @revexec/api",
     "live:test-writes": "npm run live:test-writes --workspace @revexec/api",

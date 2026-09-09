@@ -58,7 +58,7 @@ async function scheduleScan(): Promise<void> {
   }
 
   // Renew Calendar watch channels before they expire (Google channels last ~1 week).
-  const webhookUrl = process.env.CALENDAR_WEBHOOK_URL;
+  const webhookUrl = loadConfig().calendarWebhookUrl;
   if (webhookUrl) {
     const expiring = await listExpiringChannels(24 * 60 * 60 * 1000);
     for (const ch of expiring) {

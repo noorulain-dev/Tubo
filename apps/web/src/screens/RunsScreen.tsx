@@ -1,7 +1,8 @@
+import { Link } from "react-router-dom";
 import { Card, EmptyState, Spinner, StatusPill } from "../components";
 import { useRuns } from "../hooks";
 
-export function RunsScreen({ onOpen }: { onOpen: (id: string) => void }) {
+export function RunsScreen() {
   const { runs, loading, error } = useRuns();
 
   return (
@@ -38,7 +39,7 @@ export function RunsScreen({ onOpen }: { onOpen: (id: string) => void }) {
                 <tr key={r.id}>
                   <td>{r.createdAt.slice(0, 10)}</td>
                   <td>{r.accountId ?? "—"}</td>
-                  <td className="row-link" onClick={() => onOpen(r.id)}>{r.id}</td>
+                  <td className="row-link"><Link to={`/app/runs/${r.id}`}>{r.id}</Link></td>
                   <td>{r.gaps.length}</td>
                   <td>{r.proposals.filter((p) => p.status === "pending_approval").length}</td>
                   <td>{r.proposals.filter((p) => p.status === "approved" || p.status === "executed").length}</td>

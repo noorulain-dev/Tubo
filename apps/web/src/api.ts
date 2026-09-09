@@ -73,6 +73,8 @@ export interface AuditView {
 export interface AuthUser {
   id: string;
   email: string;
+  /** True for a dedicated evaluator/demo account (external execution disabled). */
+  evaluator?: boolean;
 }
 
 export interface AuthResult {
@@ -103,6 +105,23 @@ export interface ConnectionStatus {
   gmail: { connected: boolean; needsReauth: boolean };
   calendar: { connected: boolean; needsReauth: boolean };
   fireflies: { connected: boolean; needsReauth: boolean };
+}
+
+export interface CalendarEventItem {
+  id: string;
+  title: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  allDay: boolean;
+  meetingUrl: string | null;
+  organizerEmail: string | null;
+  attendeeCount: number;
+  status: string;
+}
+
+export interface CalendarEventView {
+  events: CalendarEventItem[];
+  lastSyncAt: string | null;
 }
 
 export const api = {
@@ -143,12 +162,8 @@ export const api = {
   syncCalendar(): Promise<{ synced: number; window: { start: string; end: string } }> {
     return request<{ synced: number; window: { start: string; end: string } }>(`/integrations/google-calendar/sync`, { method: "POST" });
   },
-  getCalendarEvents(start: string, end: string): Promise<{
-    events: { id: string; title: string | null; startAt: string | null; endAt: string | null; meetingUrl: string | null; organizerEmail: string | null; status: string }[];
-  }> {
-    return request<{
-      events: { id: string; title: string | null; startAt: string | null; endAt: string | null; meetingUrl: string | null; organizerEmail: string | null; status: string }[];
-    }>(`/integrations/google-calendar/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+  getCalendarEvents(start: string, end: string): Promise<CalendarEventView> {
+    return request<CalendarEventView>(`/integrations/google-calendar/events?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
   },
   connectFireflies(apiKey: string): Promise<ConnectionStatus> {
     return request<ConnectionStatus>("/connections/fireflies", { method: "POST", body: JSON.stringify({ apiKey }) });

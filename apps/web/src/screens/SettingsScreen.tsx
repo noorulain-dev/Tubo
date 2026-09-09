@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import { api, type ConnectionStatus } from "../api";
 import { Button, Card, Section } from "../components";
 
@@ -11,6 +12,7 @@ function StatusBadge({ connected }: { connected: boolean }) {
 }
 
 export function SettingsScreen() {
+  const { evaluator } = useOutletContext<{ evaluator: boolean }>();
   const [connections, setConnections] = useState<ConnectionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stripeKey, setStripeKey] = useState("");
@@ -139,9 +141,17 @@ export function SettingsScreen() {
       <div className="main-header">
         <div>
           <div className="page-title">Integrations</div>
-          <div className="page-subtitle">Connect your tools so Revenue Execution OS can act on your behalf.</div>
+          <div className="page-subtitle">Connect your tools so Tubo can act on your behalf.</div>
         </div>
       </div>
+
+      {evaluator && (
+        <div className="alert alert-info" style={{ marginBottom: 16 }}>
+          Google integration access is currently limited to approved test accounts during the assessment. The
+          evaluator workspace is preconfigured with synthetic test data so the full workflow can be reviewed
+          without connecting a personal Google account.
+        </div>
+      )}
 
       <Section title="Connections">
         <Card>
@@ -232,7 +242,7 @@ export function SettingsScreen() {
             <label>Google Calendar</label>
             <p className="helper">
               Calendar is used to understand meeting context and match notes from connected
-              meeting tools. Revenue Execution OS does not record meetings.
+              meeting tools. Tubo does not record meetings.
             </p>
             {calendar ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
@@ -263,7 +273,7 @@ export function SettingsScreen() {
           <div className="field">
             <label>Fireflies</label>
             <p className="helper">
-              Revenue Execution OS processes meetings recorded in your own Fireflies
+              Tubo processes meetings recorded in your own Fireflies
               account. It never sends Fireflies into a meeting.
             </p>
             {fireflies ? (

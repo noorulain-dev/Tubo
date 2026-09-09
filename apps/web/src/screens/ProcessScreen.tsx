@@ -111,7 +111,7 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
         </Button>
 
         <p className="helper">
-          Revenue Execution OS compares this interaction against CRM, communication and commercial state.
+          Tubo compares this interaction against CRM, communication and commercial state.
           Consequential changes require your approval.
         </p>
       </Card>

@@ -8,6 +8,8 @@ export interface CalendarEvent {
   description: string | null;
   startAt: string | null;
   endAt: string | null;
+  /** True when the event is all-day (Google `start.date` rather than `start.dateTime`). */
+  allDay: boolean;
   timezone: string | null;
   organizerEmail: string | null;
   attendees: { email: string; responseStatus: string | null }[];
@@ -69,6 +71,7 @@ export function normalizeCalendarEvent(raw: GoogleEvent, calendarId: string): Ca
     description: raw.description ?? null,
     startAt: eventTime(raw.start),
     endAt: eventTime(raw.end),
+    allDay: Boolean(raw.start?.date),
     timezone: raw.start?.timeZone ?? null,
     organizerEmail: raw.organizer?.email ?? null,
     attendees: (raw.attendees ?? []).map((a) => ({ email: a.email ?? "", responseStatus: a.responseStatus ?? null })),

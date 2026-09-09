@@ -52,6 +52,16 @@ export class AppError extends Error {
       this.cause = opts.cause;
     }
   }
+
+  /** Alias for the HTTP status code (backward-compatible with `status`). */
+  get statusCode(): number {
+    return this.status;
+  }
+
+  /** Safe, non-secret details meant for the client (backward-compatible with `details`). */
+  get safeDetails(): unknown {
+    return this.details;
+  }
 }
 
 export class ValidationError extends AppError {

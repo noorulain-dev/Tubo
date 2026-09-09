@@ -6,6 +6,8 @@ import { createSession, createUser, deleteSessionByToken, findUserByEmail, findU
 export interface AuthUser {
   id: string;
   email: string;
+  /** True for a dedicated evaluator/demo account (external execution disabled). */
+  evaluator: boolean;
 }
 
 const SESSION_TTL = "30 days";
@@ -15,7 +17,7 @@ export async function registerUser(email: string, password: string): Promise<{ u
   const passwordHash = hashPassword(password);
   // New registrations start unverified (email_verified_at is NULL).
   await createUser(id, email, passwordHash);
-  return { user: { id, email } };
+  return { user: { id, email, evaluator: false } };
 }
 
 export async function loginUser(email: string, password: string): Promise<{ token: string; user: AuthUser }> {
@@ -28,7 +30,7 @@ export async function loginUser(email: string, password: string): Promise<{ toke
   }
   const token = randomBytes(32).toString("hex");
   await createSession(token, row.id, SESSION_TTL);
-  return { token, user: { id: row.id, email: row.email } };
+  return { token, user: { id: row.id, email: row.email, evaluator: !!row.evaluator } };
 }
 
 export async function getUserByToken(token: string): Promise<AuthUser | null> {

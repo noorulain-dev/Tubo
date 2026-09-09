@@ -28,6 +28,7 @@
     "assessment:prepare": "tsx src/cli/assessment-prepare.ts",
     "assessment:cleanup": "tsx src/cli/assessment-cleanup.ts",
     "assessment:refresh-account": "tsx src/cli/assessment-refresh-account.ts",
+    "evaluator:provision": "tsx src/cli/evaluator-provision.ts",
     "live:check": "tsx src/cli/live-check.ts",
     "live:test-writes": "tsx src/cli/live-test-writes.ts"
   },

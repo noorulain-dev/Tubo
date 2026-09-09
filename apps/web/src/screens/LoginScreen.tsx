@@ -27,11 +27,11 @@ export function LoginScreen({ onAuthed }: { onAuthed: (user: AuthUser) => void }
       <div style={{ width: 360 }}>
         <div className="brand" style={{ marginBottom: 16 }}>
           <div className="brand-mark">
-            <img src="/image.png" alt="Revenue Execution OS" />
+            <img src="/image.png" alt="Tubo" />
           </div>
           <div>
-            <div className="brand-name">Revenue Execution OS</div>
-            <div className="brand-tag">Sign in to continue</div>
+            <div className="brand-name">Tubo</div>
+            <div className="brand-tag">Revenue Execution OS</div>
           </div>
         </div>
         <Card>

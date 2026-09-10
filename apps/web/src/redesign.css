@@ -895,6 +895,11 @@
   background: rgba(34, 211, 238, 0.07);
   color: var(--text-2);
 }
+.notice-success {
+  border-color: rgba(163, 255, 203, 0.4);
+  background: rgba(163, 255, 203, 0.08);
+  color: var(--success);
+}
 .notice-body {
   flex: 1;
   min-width: 0;

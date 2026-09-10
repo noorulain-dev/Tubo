@@ -137,6 +137,7 @@ export function AccountScreen({ accountId }: { accountId: string }) {
   const [investigation, setInvestigation] = useState<InvestigationResult | null>(null);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const context = useContextGaps(accountId);
   const [openGap, setOpenGap] = useState<ContextGap | null>(null);
@@ -194,8 +195,10 @@ export function AccountScreen({ accountId }: { accountId: string }) {
   async function planDecision(planId: string, actionId: string, decision: "approve" | "reject") {
     setActing(true);
     setActionError(null);
+    setActionMessage(null);
     try {
       await api.applyPlanDecision(planId, actionId, decision);
+      setActionMessage(decision === "approve" ? "Action approved." : "Action rejected.");
       await refresh();
     } catch (e) {
       setActionError(e);
@@ -237,6 +240,14 @@ export function AccountScreen({ accountId }: { accountId: string }) {
       </header>
 
       {actionError != null && <ErrorNotice error={actionError} />}
+      {actionMessage != null && (
+        <div className="notice notice-success" role="status">
+          <CheckCircle2 size={16} aria-hidden="true" />
+          <div className="notice-body">
+            <div className="notice-title">{actionMessage}</div>
+          </div>
+        </div>
+      )}
 
       <Section id="changed" title="What changed" meta={detail.lastReviewedAt ? `Last reviewed ${relTime(detail.lastReviewedAt)}` : "Not reviewed yet"}>
         <div className="panel">

@@ -263,7 +263,19 @@ export async function getAccountDetail(userId: string, accountId: string): Promi
       ORDER BY fi.id DESC LIMIT 1`,
     [userId, accountId],
   );
-  const latestInvestigation = invRes.rows[0] ?? null;
+  const rawInv = invRes.rows[0] as
+    | { finding_id: string; outcome: string; trace: unknown; started_at: string; finished_at: string }
+    | undefined;
+  const latestInvestigation = rawInv
+    ? {
+        findingId: rawInv.finding_id,
+        outcome: rawInv.outcome,
+        trace: (rawInv.trace as unknown[]) ?? [],
+        budget: { used: ((rawInv.trace as unknown[]) ?? []).length, max: 0 },
+        startedAt: new Date(rawInv.started_at).toISOString(),
+        finishedAt: new Date(rawInv.finished_at).toISOString(),
+      }
+    : null;
 
   const plans = await listPlans(userId, accountId);
   const events = await listAccountEvents(userId, accountId);

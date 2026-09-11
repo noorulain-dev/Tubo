@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { api } from "../api";
 import type { RunView } from "../types";
@@ -19,6 +19,14 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [validation, setValidation] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    api
+      .listHubspotCompanies()
+      .then(({ companies: list }) => setCompanies(list))
+      .catch(() => setCompanies([]));
+  }, []);
 
   async function handleAnalyze() {
     if (!account.trim() || !transcript.trim()) {
@@ -89,7 +97,14 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
         <aside className="process-side" aria-label="Source and context">
           <div className="field">
             <label htmlFor="account">Account</label>
-            <input id="account" value={account} onChange={(e) => setAccount(e.target.value)} placeholder="e.g. demo_stale" disabled={loading} />
+            <select id="account" className="plan-select" value={account} onChange={(e) => setAccount(e.target.value)} disabled={loading}>
+              <option value="">Select an account…</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="title">Interaction title</label>

@@ -510,8 +510,7 @@ export function createApp(opts: CreateAppOptions) {
     if (!service) return c.json(errorEnvelope("MODEL_UNAVAILABLE", "execution unavailable"), 503);
     try {
       const actionId = c.req.param("actionId");
-      const body = (await c.req.json().catch(() => null)) as { companyId?: string | null } | null;
-      const result = await service.executePlanAction(plan, actionId, user.id, body?.companyId ?? null);
+      const result = await service.executePlanAction(plan, actionId, user.id);
       const updated: ExecutionPlan = {
         ...plan,
         actions: plan.actions.map((a) =>

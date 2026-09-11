@@ -274,8 +274,8 @@ export const api = {
   applyPlanDecision(planId: string, actionId: string, decision: "approve" | "reject" | "edit", payload?: Record<string, unknown>): Promise<ExecutionPlan> {
     return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/decision`, { method: "POST", body: JSON.stringify({ decision, payload }) });
   },
-  executePlanAction(planId: string, actionId: string, companyId?: string | null): Promise<ExecutionPlan> {
-    return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/execute`, { method: "POST", body: JSON.stringify({ companyId }) });
+  executePlanAction(planId: string, actionId: string): Promise<ExecutionPlan> {
+    return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/execute`, { method: "POST" });
   },
   listHubspotCompanies(): Promise<{ companies: { id: string; name: string }[] }> {
     return request<{ companies: { id: string; name: string }[] }>("/hubspot/companies");

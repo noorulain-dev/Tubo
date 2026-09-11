@@ -192,15 +192,6 @@ export class HubSpotCRMProvider implements CRMProvider {
       },
       { idempotencyKey },
     )) as { id: string };
-    if (input.companyId) {
-      // Best-effort association: the task is created first; a failed association is
-      // logged rather than failing the whole write.
-      await this.client
-        .put(`/crm/v3/objects/tasks/${res.id}/associations/companies/${input.companyId}/task_to_company`)
-        .catch(() => {
-          this.audit.emit({ eventType: "crm.write.association_failed", payload: { method: "createTask", taskId: res.id, companyId: input.companyId } });
-        });
-    }
     if (idempotencyKey) this.idempotency.set(idempotencyKey, res.id);
     this.audit.emit({ eventType: "crm.write", payload: { method: "createTask", accountId: input.accountId, externalRef: res.id } });
     return { externalRef: res.id };

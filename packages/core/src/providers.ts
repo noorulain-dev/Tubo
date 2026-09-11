@@ -140,7 +140,6 @@ export interface CreateTaskInput {
   ownerId?: string | null;
   contactId?: string | null;
   dealId?: string | null;
-  companyId?: string | null;
 }
 
 export interface EmailWriteProvider {

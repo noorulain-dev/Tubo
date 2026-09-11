@@ -312,17 +312,14 @@ export class RunService {
    * Reuses the same ExecutionRequest shape as proposal execution so policy is
    * revalidated immediately before any write.
    */
-  async executePlanAction(plan: ExecutionPlan, actionId: string, userId: string, companyId?: string | null): Promise<ExecutionResult> {
+  async executePlanAction(plan: ExecutionPlan, actionId: string, userId: string): Promise<ExecutionResult> {
     const a = plan.actions.find((x) => x.actionId === actionId);
     if (!a || a.status !== "approved") {
       throw new Error(`Action ${actionId} is not approved and cannot execute.`);
     }
     const { executor } = await this.deps.resolver.resolve(userId);
-    const action = companyId
-      ? { ...a.action, payload: { ...(a.action.payload ?? {}), companyId } }
-      : a.action;
     const req: ExecutionRequest = {
-      proposal: action,
+      proposal: a.action,
       policyContext: plan.policyContext,
       approval: a.approval,
       runId: `plan_${plan.planId}`,

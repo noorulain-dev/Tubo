@@ -7,6 +7,7 @@ import {
   type DealRecord,
   type EmailThreadRecord,
   type ExecutionRequest,
+  type ExecutionResult,
   type NoteRecord,
   type OperationalContext,
   type PolicyAction,
@@ -23,6 +24,7 @@ import {
 import { toRunView, type RunStore, type StoredProposal, type StoredRun } from "./store.js";
 import type { ProviderResolver } from "../integrations/provider-resolver.js";
 import type { AgentActivityItem, InteractionInput, ProposalStatus, ProposalView, RunView } from "../shared/types.js";
+import type { ExecutionPlan } from "../proposals/execution-plans.js";
 
 export interface RunServiceDeps {
   interpreter: SemanticInterpreter;
@@ -296,6 +298,29 @@ export class RunService {
     rec.proposal.status = result.status === "success" ? "executed" : "failed";
     await this.deps.store.saveProposal(rec.proposal, rec.runId, userId);
     return this.view(rec.proposal);
+  }
+
+  /**
+   * Execute a single approved execution-plan action through the live executor.
+   * Reuses the same ExecutionRequest shape as proposal execution so policy is
+   * revalidated immediately before any write.
+   */
+  async executePlanAction(plan: ExecutionPlan, actionId: string, userId: string): Promise<ExecutionResult> {
+    const a = plan.actions.find((x) => x.actionId === actionId);
+    if (!a || a.status !== "approved") {
+      throw new Error(`Action ${actionId} is not approved and cannot execute.`);
+    }
+    const { executor } = await this.deps.resolver.resolve(userId);
+    const req: ExecutionRequest = {
+      proposal: a.action,
+      policyContext: plan.policyContext,
+      approval: a.approval,
+      runId: `plan_${plan.planId}`,
+      interactionFingerprint: `fp_${plan.planId}`,
+      proposalSignature: `sig_${actionId}`,
+      executionId: `exec_${actionId}`,
+    };
+    return executor.execute(req);
   }
 
   private view(p: StoredProposal): ProposalView {

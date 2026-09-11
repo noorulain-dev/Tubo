@@ -274,6 +274,9 @@ export const api = {
   applyPlanDecision(planId: string, actionId: string, decision: "approve" | "reject" | "edit", payload?: Record<string, unknown>): Promise<ExecutionPlan> {
     return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/decision`, { method: "POST", body: JSON.stringify({ decision, payload }) });
   },
+  executePlanAction(planId: string, actionId: string): Promise<ExecutionPlan> {
+    return request<ExecutionPlan>(`/execution-plans/${planId}/actions/${actionId}/execute`, { method: "POST" });
+  },
   getEvaluationSummary(): Promise<EvaluationSummary> {
     return request<EvaluationSummary>("/evaluation/summary");
   },

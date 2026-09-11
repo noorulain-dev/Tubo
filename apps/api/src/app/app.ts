@@ -498,6 +498,34 @@ export function createApp(opts: CreateAppOptions) {
     return c.json(next);
   });
 
+  app.post("/execution-plans/:planId/actions/:actionId/execute", async (c) => {
+    if (currentUser(c)?.evaluator) {
+      return c.json(errorEnvelope("PERMISSION", "External execution is disabled in the evaluator workspace."), 403);
+    }
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const plan = await getPlan(user.id, c.req.param("planId"));
+    if (!plan) return c.json(errorEnvelope("NOT_FOUND", "plan not found"), 404);
+    const service = opts.liveService ?? opts.sampleService;
+    if (!service) return c.json(errorEnvelope("MODEL_UNAVAILABLE", "execution unavailable"), 503);
+    try {
+      const actionId = c.req.param("actionId");
+      const result = await service.executePlanAction(plan, actionId, user.id);
+      const updated: ExecutionPlan = {
+        ...plan,
+        actions: plan.actions.map((a) =>
+          a.actionId === actionId
+            ? { ...a, status: result.status === "success" ? "executed" : "failed", execution: result }
+            : a,
+        ),
+      };
+      await savePlan(user.id, updated);
+      return c.json(updated);
+    } catch (err) {
+      return handleError(c, err);
+    }
+  });
+
   app.get("/command-center", async (c) => {
     const user = currentUser(c);
     if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);

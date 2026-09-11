@@ -207,6 +207,21 @@ export function AccountScreen({ accountId }: { accountId: string }) {
     }
   }
 
+  async function executeAction(planId: string, actionId: string) {
+    setActing(true);
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await api.executePlanAction(planId, actionId);
+      setActionMessage("Action executed.");
+      await refresh();
+    } catch (e) {
+      setActionError(e);
+    } finally {
+      setActing(false);
+    }
+  }
+
   if (loading) return <Skeleton rows={5} height={92} />;
   if (error) return <ErrorNotice error={error} onRetry={() => void refresh()} />;
   if (!detail) return <EmptyState title="Account not found." hint="It may have been removed from this workspace." />;
@@ -428,6 +443,14 @@ export function AccountScreen({ accountId }: { accountId: string }) {
                           </button>
                           <button type="button" className="btn btn-primary btn-sm" disabled={acting} onClick={() => void planDecision(p.planId, a.actionId, "approve")}>
                             Approve
+                          </button>
+                        </div>
+                      )}
+                      {a.status === "approved" && (
+                        <div className="action-actions">
+                          <span className="execute-note">Approved — not yet executed.</span>
+                          <button type="button" className="btn btn-execute btn-sm" disabled={acting} onClick={() => void executeAction(p.planId, a.actionId)}>
+                            Execute now
                           </button>
                         </div>
                       )}

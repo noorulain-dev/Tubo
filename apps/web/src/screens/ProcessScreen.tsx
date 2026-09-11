@@ -100,7 +100,7 @@ export function ProcessScreen({ onAnalyzed }: { onAnalyzed: (run: RunView) => vo
             <select id="account" className="plan-select" value={account} onChange={(e) => setAccount(e.target.value)} disabled={loading}>
               <option value="">Select an account…</option>
               {companies.map((c) => (
-                <option key={c.id} value={c.name}>
+                <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}

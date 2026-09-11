@@ -510,7 +510,8 @@ export function createApp(opts: CreateAppOptions) {
     if (!service) return c.json(errorEnvelope("MODEL_UNAVAILABLE", "execution unavailable"), 503);
     try {
       const actionId = c.req.param("actionId");
-      const result = await service.executePlanAction(plan, actionId, user.id);
+      const body = (await c.req.json().catch(() => null)) as { companyId?: string | null } | null;
+      const result = await service.executePlanAction(plan, actionId, user.id, body?.companyId ?? null);
       const updated: ExecutionPlan = {
         ...plan,
         actions: plan.actions.map((a) =>
@@ -521,6 +522,19 @@ export function createApp(opts: CreateAppOptions) {
       };
       await savePlan(user.id, updated);
       return c.json(updated);
+    } catch (err) {
+      return handleError(c, err);
+    }
+  });
+
+  app.get("/hubspot/companies", async (c) => {
+    const user = currentUser(c);
+    if (!user) return c.json(errorEnvelope("AUTHENTICATION", "unauthorized"), 401);
+    const service = opts.liveService ?? opts.sampleService;
+    if (!service) return c.json(errorEnvelope("MODEL_UNAVAILABLE", "live integrations unavailable"), 503);
+    try {
+      const companies = await service.listCompanies(user.id);
+      return c.json({ companies });
     } catch (err) {
       return handleError(c, err);
     }

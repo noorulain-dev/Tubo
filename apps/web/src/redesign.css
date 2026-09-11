@@ -900,6 +900,15 @@
   background: rgba(163, 255, 203, 0.08);
   color: var(--success);
 }
+.plan-select {
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  max-width: 240px;
+}
 .notice-body {
   flex: 1;
   min-width: 0;

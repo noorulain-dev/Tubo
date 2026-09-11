@@ -97,6 +97,8 @@ export interface TaskSignature {
 
 export interface CRMReadProvider {
   resolveAccount(query: string): Promise<Account[]>;
+  /** List all accounts/companies available to the connected source (for pickers). */
+  listCompanies?(): Promise<Account[]>;
   getContacts(accountId: string): Promise<ContactRecord[]>;
   getOpenDeal(accountId: string): Promise<DealRecord | null>;
   getDeal(dealId: string): Promise<DealRecord | null>;
@@ -138,6 +140,7 @@ export interface CreateTaskInput {
   ownerId?: string | null;
   contactId?: string | null;
   dealId?: string | null;
+  companyId?: string | null;
 }
 
 export interface EmailWriteProvider {

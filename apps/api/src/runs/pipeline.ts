@@ -1,5 +1,6 @@
 import {
   ReasoningAgent,
+  type Account,
   type AgentReadContext,
   type AgentToolCall,
   type CommercialState,
@@ -120,6 +121,12 @@ export class RunService {
   async resolveReadContext(userId: string): Promise<AgentReadContext> {
     const { readContext } = await this.deps.resolver.resolve(userId);
     return readContext;
+  }
+
+  /** List accounts available to the connected source (for a company picker). */
+  async listCompanies(userId: string): Promise<Account[]> {
+    const { readContext } = await this.deps.resolver.resolve(userId);
+    return readContext.crm.listCompanies?.() ?? [];
   }
 
   async process(input: InteractionInput, userId: string): Promise<RunView> {
@@ -305,14 +312,17 @@ export class RunService {
    * Reuses the same ExecutionRequest shape as proposal execution so policy is
    * revalidated immediately before any write.
    */
-  async executePlanAction(plan: ExecutionPlan, actionId: string, userId: string): Promise<ExecutionResult> {
+  async executePlanAction(plan: ExecutionPlan, actionId: string, userId: string, companyId?: string | null): Promise<ExecutionResult> {
     const a = plan.actions.find((x) => x.actionId === actionId);
     if (!a || a.status !== "approved") {
       throw new Error(`Action ${actionId} is not approved and cannot execute.`);
     }
     const { executor } = await this.deps.resolver.resolve(userId);
+    const action = companyId
+      ? { ...a.action, payload: { ...(a.action.payload ?? {}), companyId } }
+      : a.action;
     const req: ExecutionRequest = {
-      proposal: a.action,
+      proposal: action,
       policyContext: plan.policyContext,
       approval: a.approval,
       runId: `plan_${plan.planId}`,

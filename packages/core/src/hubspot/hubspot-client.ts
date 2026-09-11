@@ -90,6 +90,10 @@ export class HubSpotHttpClient {
     return this.request("PATCH", path, { body });
   }
 
+  async put(path: string, body?: unknown): Promise<unknown> {
+    return this.request("PUT", path, { body });
+  }
+
   /** Follows HubSpot search/listing pagination via `paging.next.after`. */
   async searchAll(path: string, body: unknown): Promise<unknown[]> {
     const out: unknown[] = [];

@@ -207,6 +207,7 @@ export class Executor {
           ownerId: (payload.ownerId as string | null) ?? null,
           contactId: (payload.contactId as string | null) ?? null,
           dealId: (payload.dealId as string | null) ?? null,
+          companyId: (payload.companyId as string | null) ?? null,
         };
         return (await this.crm.createTask(input, idempotencyKey)).externalRef;
       }

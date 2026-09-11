@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, HelpCircle, RefreshCw, Search } from "lucide-react";
 import { api } from "../api";
 import { useAccountDetail, useContextGaps } from "../hooks";
@@ -141,6 +141,15 @@ export function AccountScreen({ accountId }: { accountId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const context = useContextGaps(accountId);
   const [openGap, setOpenGap] = useState<ContextGap | null>(null);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    api
+      .listHubspotCompanies()
+      .then(({ companies: list }) => setCompanies(list))
+      .catch(() => setCompanies([]));
+  }, []);
 
   /** Latest human answer per gap, for the "Resolved by …" line. */
   const resolutionByGap = new Map(context.resolutions.map((r) => [r.gapId, r]));
@@ -207,12 +216,12 @@ export function AccountScreen({ accountId }: { accountId: string }) {
     }
   }
 
-  async function executeAction(planId: string, actionId: string) {
+  async function executeAction(planId: string, actionId: string, companyId?: string | null) {
     setActing(true);
     setActionError(null);
     setActionMessage(null);
     try {
-      await api.executePlanAction(planId, actionId);
+      await api.executePlanAction(planId, actionId, companyId ?? null);
       setActionMessage("Action executed.");
       await refresh();
     } catch (e) {
@@ -448,8 +457,22 @@ export function AccountScreen({ accountId }: { accountId: string }) {
                       )}
                       {a.status === "approved" && (
                         <div className="action-actions">
+                          {a.action.type === "create_task" && (
+                            <select
+                              className="plan-select"
+                              value={selectedCompany[a.actionId] ?? ""}
+                              onChange={(e) => setSelectedCompany((prev) => ({ ...prev, [a.actionId]: e.target.value }))}
+                            >
+                              <option value="">No account (unassociated)</option>
+                              {companies.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <span className="execute-note">Approved — not yet executed.</span>
-                          <button type="button" className="btn btn-execute btn-sm" disabled={acting} onClick={() => void executeAction(p.planId, a.actionId)}>
+                          <button type="button" className="btn btn-execute btn-sm" disabled={acting} onClick={() => void executeAction(p.planId, a.actionId, selectedCompany[a.actionId] ?? null)}>
                             Execute now
                           </button>
                         </div>

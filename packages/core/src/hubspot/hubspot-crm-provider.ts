@@ -172,7 +172,9 @@ export class HubSpotCRMProvider implements CRMProvider {
         properties: {
           hs_task_subject: input.title,
           hs_task_type: input.type,
-          hs_timestamp: input.dueDate ?? undefined,
+          // HubSpot requires a due date on tasks; default to 7 days out when the
+          // interaction did not resolve an explicit deadline.
+          hs_timestamp: input.dueDate ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           hubspot_owner_id: input.ownerId ?? undefined,
         },
       },
